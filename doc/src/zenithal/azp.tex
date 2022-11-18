@@ -1,0 +1,158 @@
+\subsection{AZP: Zenithal perspective \label{sec:azp}}
+
+  The point of projection $P$ is on the $x$-axis and its coordinates (in the local frame) are $(-\mu, 0, 0)$.
+  The projection plane is not perpendicular to the $x$-axis but is tilted of an angle $\gamma$
+  (angle between the perpendicular to the plane at the point (1, 0, 0) and the $x$-axis) in the $xz$ plane.
+  \begin{itemize}
+    \item $\mu$ - is the opposite of the abscissa of the projection point $P$ and must be $\ne -1$
+          (in which case $P$ is on the projection plane)
+    \item $\gamma$ - angle between the projection plane and the $x$-axis in the $xz$ plane.
+  \end{itemize}
+  In FITS, $\mu$ is provided by keyword PV$i\_1a$ (no units, default value $=0$) and
+  $\gamma$ is provided by keyword PV$i\_2a$ (in degrees, default value $=0$).
+  The projection is defined by the following equations:
+  \begin{eqnarray}
+    X & = & D \cos\theta \\
+    Y & = & D \frac{\sin\theta}{\cos\gamma} \\
+    D & = & \frac{(\mu + 1) \sin\rho}{(\mu + \cos\rho) - \sin\rho\sin\theta\tan\gamma}
+  \end{eqnarray}
+  Remark: $\mu + 1$ is the coordinate of $P$ from the point (1, 0, 0) and allong the opposite of the $x$-axis.
+
+\subsubsection{Projection}
+
+      We rewrite
+      \begin{equation} 
+        D = \frac{(\mu + 1) \sin\rho}{(\mu + x) - z\tan\gamma}
+      \end{equation}
+      So
+      \begin{eqnarray}
+        X & = & D \frac{y}{\sin\rho}           = \frac{y(\mu + 1)}{(\mu + x) - z\tan\gamma} \\
+        Y & = & D \frac{z}{\sin\rho\cos\gamma} = \frac{z(\mu + 1)}{\cos\gamma(\mu + x) - z\sin\gamma}
+      \end{eqnarray}
+      The limit of the projection if $|\mu|>1$ is $x = \frac{-1}{\mu}$, so if $x < \frac{-1}{\mu}$ a
+      point is not projected.
+      From this value, we can compute the maximum value of $D$, which depends on $\theta$:
+      \begin{eqnarray}
+        D_{max}(\theta) & = & \frac{(\mu + 1)\sqrt{1 - \frac{1}{\mu^2}}}
+	                           {(\mu - \frac{1}{\mu}) - \sqrt{1 - \frac{1}{\mu^2}}\sin\theta\tan\gamma} \\
+                        & = & \frac{\mu + 1}{\sqrt{\mu^2 - 1} - \sin\theta\tan\gamma}
+      \end{eqnarray}
+      The limit of the projection if $|\mu|<1$ is more complex.
+      The limit is the plane parallel to the projection plane and containing the point of position
+      $(-\mu, 0, 0)$.
+      We can then write the limit: $(x, y, z).(-\cos\gamma, 0, \sin\gamma) <= \mu\cos\gamma$, which gives
+      \begin{equation}
+        (x+\mu)\cos\gamma \le z\sin\gamma
+      \end{equation}
+      we do not use $\tan\gamma$ not to have to change the inequality according to the sign of $\cos\gamma$
+      and to be still able to use the formula when $\gamma\approx\pm \pi/2$.
+
+\subsubsection{Deprojection}
+
+      We have to revert $D$ to obtain $\rho$.
+      \begin{eqnarray}
+        D & = & \sqrt{X^2 + Y^2\cos^2\gamma} \\
+	\sin\theta & = & \frac{Y\cos\gamma}{D} \\
+	D(\mu + \cos\rho) - \sin\rho Y\sin\gamma & = & (\mu + 1)\sin\rho \label{eq:szp:deproj:d}
+      \end{eqnarray}
+      First of all, we compute the distance max to be sure the given point are in the limits of the projection:
+      \begin{equation}
+        D_{max}(Y) = \frac{\mu + 1}{\sqrt{\mu^2 - 1} - \frac{Y}{D}\sin\gamma}
+      \end{equation}
+      So if $D \le D_{max}(Y)$ or ,equivalently, if $D\sqrt{\mu^2+1}\le (\mu + 1) + Y\sin\gamma$, we continue.
+      Dividing by $D$ on both sides of Eq. (\ref{eq:szp:deproj:d}), we rewrite it:
+      \begin{equation}
+        \frac{(\mu + 1) + Y\sin\gamma}{D}\sin\rho - \cos\rho = \mu
+      \end{equation}
+      If $(\mu + 1) = -Y\sin\gamma$, the equation reduces to $\cos\rho = -\mu$ so $\rho=\arccos(-\mu)$ (which is possible only of $\mu \in [-1, 1]$.
+      To better handle small distance (i.e. $D\approx 0$) we rewrite the previous equation:
+      \begin{equation}
+        \sin\rho - \frac{D}{(\mu + 1) + Y\sin\gamma}\cos\rho = \frac{\mu D}{(\mu + 1) + Y\sin\gamma}
+      \end{equation}
+      If $D=0$, it reduces to $\sin\rho=0$ so to $\rho=0$ (can't be $\pi$ since the opposite point is hidden in htis projection).
+      Previous equation is an equation of the form:
+      \begin{equation}
+        A\sin a - B\cos a = C
+      \end{equation}
+      That we solve rewriting it
+      \begin{equation}
+        \frac{A}{\sqrt{A^2 + B^2}}\sin a - \frac{B}{\sqrt{A^2 + B^2}}\cos a = \frac{C}{\sqrt{A^2 + B^2}}
+      \end{equation}
+      and using the equality ($A/\sqrt{A^2 + B^2}$ and $B/\sqrt{A^2+B^2}$ are $\in [0, 1]$ so they can be the value if sines or cosines)
+      \begin{equation}
+        \sin(a-b) = \sin a\cos b - \cos a\sin b
+      \end{equation}
+      Leading to
+      \begin{equation}
+        a = \arcsin \frac{C}{\sqrt{A^2 + B^2}} + \arctan(B/A) 
+      \end{equation}
+      Because of the $\arcsin$ function which results are $\in [-\pi/2, \pi/2]$, in the case of $|\mu|<1$ we may choose the solution
+      \begin{equation}
+        a = \pi - \arcsin \frac{C}{\sqrt{A^2 + B^2}} + \arctan(B/A) 
+      \end{equation}
+      So in our case in which $C=\mu B$, we have 
+      \begin{equation}
+        \rho = \arcsin \frac{\mu B}{\sqrt{B^2 + 1}} + \arctan B
+      \end{equation}
+      with
+      \begin{equation}
+        B = \frac{D}{(\mu + 1) + Y\sin\gamma}
+      \end{equation}
+      In case of $|\mu|<1$, we have the solution:
+      \begin{equation}
+        \rho =
+	\begin{cases}
+	  \arcsin \frac{\mu B}{\sqrt{B^2 + 1}} + \arctan B       &\text{if $\sin(\rho) > 0$} \\
+	  \pi - \arcsin \frac{\mu B}{\sqrt{B^2 + 1}} + \arctan B &\text{if $\sin(\rho) < 0$}
+        \end{cases}
+      \end{equation}
+      But we are interested in $sin\rho$ and $\cos\rho$,
+      and trigonometric functions are costly (in term of CPU)  
+      so using:
+      \begin{equation}
+        \sin(a+b) = \sin a\cos b + \cos a\sin b
+      \end{equation}
+      we can write
+      \begin{eqnarray}
+        \sin \rho & = & \sin\left(\arcsin \frac{\mu B}{\sqrt{B^2 + 1}} + \arctan B\right) \\
+	          & = & \frac{\mu B}{\sqrt{B^2 + 1}}        \frac{1}{\sqrt{1 + B^2}}
+		      + \sqrt{1 - \frac{\mu^2B^2}{B^2 + 1}} \frac{B}{\sqrt{1 + B^2}} \\
+		  & = & (w_2 + w_3 B) / w_1
+      \end{eqnarray}
+      and
+      \begin{eqnarray}
+        \sin((\pi-a)+b) & = & \sin (\pi - a)\cos b + \cos(\pi - a)\sin b \\
+	                & = & (\sin\pi\cos a - \cos\pi\sin a)\cos b + (\cos\pi\cos a + \sin\pi\sin a))\sin b \\
+			& = & \sin a\cos b - \cos a\sin b \\
+			& = & (w_2 - w_3B) / w_1
+      \end{eqnarray}
+      and using
+      \begin{equation}
+        \cos(a+b) = \cos a\cos b - \sin a\sin b
+      \end{equation}
+      we can write
+      \begin{eqnarray}
+        \cos \rho & = & \cos\left(\arcsin \frac{\mu B}{\sqrt{B^2 + 1}} + \arctan\sqrt{B^2 + 1}\right) \\
+		  & = & \sqrt{1 - \frac{\mu^2B^2}{B^2 + 1}}  \frac{1}{\sqrt{1 + B^2)}}
+		      - \frac{\mu B}{\sqrt{B^2 + 1}}         \frac{B}{\sqrt{1 + B^2}} \\
+		  & = & (w_3 - w_2 B) / w_1
+      \end{eqnarray}
+      and
+      \begin{eqnarray}
+        \cos((\pi-a)+b) & = & \cos(\pi - a)\cos b - \sin(\pi - a)\sin b \\
+			& = & -(\cos a\cos b + \sin a\cos b) \\
+			& = & -(w_3 + w_2B) /w_1
+      \end{eqnarray}
+      with
+      \begin{eqnarray}
+        w_1 & = & \sqrt{B^2+1}  \\
+        w_2 & = & \frac{\mu B}{w_1} \\
+        w_3 & = & \sqrt{1 - w_2^2}
+      \end{eqnarray}
+      So at the end we have all ingredients to compute
+      \begin{eqnarray}
+        x & = & \cos\rho \\
+	y & = & \sin\rho \frac{X}{D} \\
+	z & = & \sin\rho \frac{Y\cos\gamma}{D}
+      \end{eqnarray}
+

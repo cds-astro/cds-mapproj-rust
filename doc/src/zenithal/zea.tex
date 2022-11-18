@@ -1,0 +1,46 @@
+\subsection{ZEA: Zenithal equal-area}
+
+  The zenithal equal-area projection is the quite simple case in which
+  \begin{equation}
+    R = 2\sin\frac{\rho}{2}.
+  \end{equation}
+
+ \subsubsection{Projection}
+
+  We develop the expression of the Euclidean distance $R$
+  using Eq. (\ref{eq:cos2x}) and then Eq. (\ref{eq:zen.x}):
+  \begin{eqnarray}
+    R^2 & = & 4\sin^2\frac{\rho}{2} \\
+        & = & 4\frac{1 - \cos\rho}{2} \\
+        & = & 2(1 - x)
+  \end{eqnarray}
+  So the projection formulae are
+  \begin{eqnarray}
+    X & = & \sqrt{2(1 - x)} \frac{y}{\sin\rho} \\
+      & = & \sqrt{\frac{2(1 - x)}{1 - x^2}} y \\
+      & = & \sqrt{\frac{2}{1+x}}y \label{eq:zea.proj.X}\\
+    Y & = & \sqrt{2(1 - x)} \frac{z}{\sin\rho} \\
+      & = & \sqrt{\frac{2}{1+x}}z \label{eq:zea.proj.Y}
+  \end{eqnarray}
+
+  \subsubsection{Deprojection}
+
+    We find the expression of $x$ from $R^2=X^2+Y^2$:
+    \begin{eqnarray}
+      R^2 & = & \frac{2}{1+x}r \\
+          & = & \frac{2}{1+x}(1-x^2) \\
+          & = & \frac{2}{1+x}(1+x)(1-x) \\
+          & = & 2(1-x)
+    \end{eqnarray}
+    So
+    \begin{equation}
+      x = 1 - \frac{R^2}{2} = 1 - \frac{X^2+Y^2}{2}
+    \end{equation}
+    We now reinject this expression of $x$ in the projection formulae Eq. (\ref{eq:zea.proj.X}) and (\ref{eq:zea.proj.Y})
+    To obtain 
+    \begin{eqnarray}
+      y & = & \sqrt{1-\frac{R^2}{4}}X = \sqrt{1-\frac{X^2+Y^2}{4}}X \\
+      z & = & \sqrt{1-\frac{R^2}{4}}Y = \sqrt{1-\frac{X^2+Y^2}{4}}Y
+    \end{eqnarray}
+ 
+

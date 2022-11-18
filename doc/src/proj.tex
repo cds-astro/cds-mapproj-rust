@@ -1,0 +1,162 @@
+\documentclass[a4paper,twoside,11pt]{article}
+
+\input{proj.sty}
+\title{Projections}
+\author{F.-X. Pineau, CDS Strasbourg}
+\date{\today} 
+ 
+
+\DeclareMathOperator{\sinc}{sinc}
+\DeclareMathOperator{\arcsinc}{arcsinc}
+
+\begin{document}
+
+\maketitle
+
+\tableofcontents \clearpage
+
+\input{trigo.tex}
+
+\section{Generalities}
+
+  A projection is a transformation 
+  $F: \mathbb{R}^2 \to \mathbb{R}^2$,
+  $(X, Y) = F(\alpha, \delta)$
+  \begin{equation*}
+    F:
+    \begin{pmatrix}
+      \alpha \\
+      \delta
+    \end{pmatrix}
+    \to
+    \begin{pmatrix}
+      X = f_1(\alpha, \delta) \\
+      Y = f_2(\alpha, \delta) \\
+    \end{pmatrix}
+  \end{equation*}
+  The associated differential transform is
+  \begin{equation}
+    \mathrm{d}X\mathrm{d}Y = |\det J_F(\alpha,\delta)| \mathrm{d}\alpha\mathrm{d}\delta
+  \end{equation}
+  with $J_F$ the Jacobian of the transformation $F$:
+  \begin{equation}
+    J_F = 
+    \begin{pmatrix}
+      \frac{\partial f_1}{\partial \alpha} & \frac{\partial f_1}{\partial \delta} \\
+      \frac{\partial f_2}{\partial \alpha} & \frac{\partial f_2}{\partial \delta}
+    \end{pmatrix}
+  \end{equation}
+  A projection is equiareal if elementary surfaces are proportional, so if
+  \begin{equation}
+    \mathrm{d}X\mathrm{d}Y \propto \cos\delta\mathrm{d}\alpha\mathrm{d}\delta
+    \label{eq:equiareal}
+  \end{equation}
+  So if $|\det J_F(\alpha,\delta)| \propto \cos\delta$.
+
+  \subsection{Changing the center of the projection}
+
+    By default we consider in this document that the centre of the projection
+    is the vernal point, so the point of Eulidean coordinates $(1, 0, 0)$.
+
+    To set the projection cetner to $(\alpha_c, \delta_c)$, simpliy mutliply the $(x, y, z)$
+    coordinate of a celestial point by the rotation matrix:
+    \begin{equation*}
+      \begin{pmatrix}
+        \cos\alpha_c\cos\delta_c &  \sin\alpha_c\cos\delta_c & \sin\delta_c\\
+       -\sin\alpha_c             &  \cos\alpha_c             & 0 \\
+       -\cos\alpha_c\sin\delta_c & -\sin\alpha_c\sin\delta_c & \cos\delta_c
+      \end{pmatrix}
+    \end{equation*}
+    before the projection.
+
+    And by the transpose of the matrix after the deprojection.
+
+\section{Zenithal (or azimuthal) projections}
+
+  Input:
+  \begin{eqnarray}
+    x & = & \cos(\rho) \label{eq:zen.x} \\
+    y & = & \sin(\rho) \cos(\theta) \label{eq:zen.y} \\
+    z & = & \sin(\rho) \sin(\theta) \label{eq:zen.z}
+  \end{eqnarray}
+  in which $\rho$ is the angular distance between the reference point $(1, 0, 0)$
+  and the point to be projected $(x, y, z)$ and $\theta$ is the angle between
+  $\vec{y} = \vec{(0, 1, 0)}$ and $\vec{(0, y, z)}$, i.e. $\theta=\frac{\pi}{2} - PA$, $PA$
+  being the position angle (east of north) between the reference point and the point
+  to be projected.
+
+  Output:
+  \begin{eqnarray}
+    X & = & R \cos(\theta) \label{eq:zenithal.X} \\
+    Y & = & R \sin(\theta) \label{eq:zenithal.Y}
+  \end{eqnarray}
+  
+  We have the relations
+  \begin{eqnarray}
+    x^2 + y^2 + z^2  & = & 1 \\
+    \sqrt{y^2 + z^2} & = & \sin(\rho) = r \\
+              \theta & = & \arctan{\frac{y}{x}} \\
+	      \theta & = & \arctan{\frac{Y}{X}} \\
+                   R & = & \sqrt{X^2 + Y^2}
+  \end{eqnarray}
+
+  In the FITS reference paper \citep{Calabretta2002}, different conventions are used.
+  They use $\phi_{cg}$ and $\theta_{cg}$ ($cg$ stands for ``Calabretta and Greisen'')
+  wich are linked to our conventions by the formula:
+  \begin{eqnarray}
+    \theta & = & \frac{\pi}{2} - \frac{\pi}{180}\phi_{cg}   \label{eq:zen:theta} \\
+    \rho   & = & \frac{\pi}{2} - \frac{\pi}{180}\theta_{cg} \label{eq:zen:rho}
+  \end{eqnarray}
+  Depending on if we look from the inner of the unit sphere or the outter of the unit sphere,
+  we may also have
+  \begin{equation}
+    \theta = \frac{\pi}{2} - \frac{\pi}{180}\phi_{cg}   \label{eq:zen:theta_v2}
+  \end{equation}
+
+
+  \input{zenithal/azp.tex}
+  \input{zenithal/szp.tex}
+  \input{zenithal/tan.tex}
+  \input{zenithal/stg.tex}
+  \input{zenithal/sin.tex}
+  \input{zenithal/ncp.tex} 
+  \input{zenithal/arc.tex}
+  \input{zenithal/zpn.tex}
+  \input{zenithal/zea.tex}
+  \input{zenithal/air.tex}
+
+\section{Cylindrical}
+
+  Input:
+  \begin{eqnarray}
+    x & = & \cos(\rho) \label{eq:zen.x} \\
+    y & = & \sin(\rho) \cos(\theta) \label{eq:zen.y} \\
+    z & = & \sin(\rho) \sin(\theta) \label{eq:zen.z}
+  \end{eqnarray}
+  in which $\rho$ is the angular distance between the reference point $(1, 0, 0)$
+  and the point to be projected $(x, y, z)$ and $\theta$ is the angle between
+  $\vec{y} = \vec{(0, 1, 0)}$ and $\vec{(0, y, z)}$, i.e. $\theta=\frac{\pi}{2} - PA$, $PA$
+  being the position angle (east of north) between the reference point and the point
+  to be projected.
+
+  Output:
+  \begin{eqnarray}
+    X & = & F_X(\alpha) \label{eq:cylindrical.X} \\
+    Y & = & F_Y(\delta) \label{eq:cylindrical.Y}
+  \end{eqnarray}
+
+
+  \input{cylindrical/car.tex}
+  \input{cylindrical/cea.tex}
+  \input{cylindrical/cyp.tex}
+
+
+
+\section{Pseudocylindrical}
+
+  \input{pseudocylindrical/mol.tex}
+
+  \bibliography{biblio}
+
+\end{document}
+

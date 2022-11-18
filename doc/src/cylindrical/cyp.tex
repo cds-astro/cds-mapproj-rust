@@ -1,0 +1,29 @@
+\subsection{CYP: Cylindrical perspective}
+
+  The cylindrical perpective projection depends on two parameters
+  $\mu$ and $\lambda$.
+  \begin{itemize}
+    \item $\mu$ is the distance from the centre of the unit sphere to the projection point for a given $\alpha$;
+    \item $\lambda$ is the radius of the cylinder the unit sphere is projected on.
+  \end{itemize}  
+  In other words, for a position $(\alpha, \delta)$ to be projected, the projection point
+  as the coordinate $(\alpha, 0)$ at a distance $\mu$ of the centre of the unit sphere.
+
+  The projection formulae are
+  \begin{eqnarray}
+    X & = & \lambda \alpha \\
+    Y & = & \frac{\mu + \lambda}{\mu + \cos\delta} \sin\delta
+  \end{eqnarray}
+
+  \subsubsection{Projection}
+
+    \begin{eqnarray}
+      X & = & \lambda \arctan 2(y, x) \\
+      Y & = & \frac{\mu + \lambda}{\mu + \sqrt{1 - z^2}} z
+    \end{eqnarray}
+
+  \subsubsection{Deprojection}
+
+     
+
+

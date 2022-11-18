@@ -1,0 +1,24 @@
+\subsection{NCP: non-slant SIN with projection point located at the North Celestial Pole}
+
+  Provided we set the projection center to $(0, \pi/2)$, the equation are then the same as
+  the simple (non-slant) SIN projection, i.e.:
+  \begin{equation}
+    R = \sin\rho.
+  \end{equation}
+  
+  \subsubsection{Projection}
+
+    We simply have
+    \begin{eqnarray}
+      X & = & y \\
+      Y & = & z 
+    \end{eqnarray}
+
+  \subsubsection{Deprojection}
+
+    \begin{eqnarray}
+      x & = & \sqrt{1 - (X^2 + Y^2)} \\
+      y & = & X \\
+      z & = & Y
+    \end{eqnarray}
+

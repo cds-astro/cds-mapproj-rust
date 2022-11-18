@@ -1,0 +1,41 @@
+% VIGNETTES
+\usepackage[pdftex]{thumbpdf} % Vignettes
+% NAVIGATION
+\usepackage[pdftex,                %
+    bookmarks         = true,%     % Signets
+    bookmarksnumbered = true,%     % Signets numérotés
+    pdfpagemode       = None,%     % Signets/vignettes fermé à l'ouverture
+    pdfstartview      = FitH,%     % La page prend toute la largeur
+    pdfpagelayout     = SinglePage,% Vue par page
+    colorlinks        = true,%     % Liens en couleur
+    urlcolor          = magenta,%  % Couleur des liens externes
+    pdfborder         = {0 0 0}%   % Style de bordure : ici, pas de bordure
+    ]{hyperref}%                   % Utilisation de HyperTeX
+\usepackage{url}
+\let\urlorig\url         %[fxp] This way \urlorig point to the origianl \url command 
+\renewcommand{\url}[1]{  %[fxp] In case we are in French, we switch in english to avoid compatibility errors (because of avtive : in french) with urls
+  \begin{otherlanguage}{english}\urlorig{#1}\end{otherlanguage}
+}
+
+% MATH ET FORMULES
+\usepackage{amsmath} % pour text{} dans un environement math, ...
+\usepackage{stmaryrd}    % pour [[  et ]]
+\usepackage{txfonts} %pour \mathbb
+\usepackage{gensymb} %Pour \degree
+\usepackage{yhmath}  %Pour \wideparen
+\usepackage{amssymb} % A lot a symbols
+
+%DIVERS
+\usepackage{verbatim} % Pour pouvoir utiliser l'environement verbatim
+
+% BIBLIOGRAPHIE BIBTEX
+\usepackage{natbib}
+\bibliographystyle{sty/bibtex/aa}
+
+\newcommand\araa{ARA\&A}%
+\newcommand\aaps{A\&AS}%
+\newcommand\aj{AJ}
+\newcommand\apj{ApJ}
+\newcommand\apjs{{ApJS}}
+\newcommand\skytel{{S\&T}}
+\newcommand{\aap}{A\&A}

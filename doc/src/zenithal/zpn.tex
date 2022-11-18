@@ -1,0 +1,45 @@
+\subsection{ZPN: Zenithal polynomial}
+
+  The zenithal polynomial projection is a generalization of
+  the zenithal equidistant projection in which the Eculidean
+  distance is a polynomial of the angular distance
+  \begin{equation}
+    R = P(\rho) = p_0 + \rho(p_1 + \rho(p_2... + \rho(p_{n-1} + \rho p_n )...))
+    \label{eq:zen.zpn.R}
+  \end{equation}
+
+  \subsubsection{Projection}
+
+    \begin{eqnarray}
+      r & = & \sin\rho = \sqrt{y^2 + z^2} \\
+      X & = & P(\rho)\cos\theta = P(\rho)\frac{y}{\sin\rho} = P(\arcsin r)\frac{y}{r} \\
+      Y & = & P(\rho)\sin\theta = P(\rho)\frac{z}{\sin\rho} = P(\arcsin r)\frac{z}{r}
+    \end{eqnarray}
+    In practice for large angular distances (let us say $\rho>\pi/2$), we 
+    replace $\arcsin r$ by $\arccos(x)$ for a better numercial precision.
+
+  \subsubsection{Deprojection}
+
+    We use the Newton-Raphson's method to invert numerically Eq. (\ref{eq:zen.zpn.R})
+    and find $\rho$ from $R=\sqrt{X^2 + Y^2}$:
+    \begin{equation}
+      \rho = P^{-1}(R=\sqrt{X^2 + Y^2}).
+    \end{equation}
+    To do so we first have to compute the derivative of $P'(\rho)$ of $P(\rho)$
+    \begin{equation}
+      R' = P'(\rho) = p_1 + \rho(2p_2 + \rho(3p_3... + \rho((n-1)p_{n-1} + \rho n p_n )...)),
+    \end{equation}
+    then we solve iteratively $P(\rho) - R = 0$ using the recursion formula
+    \begin{equation}
+      \rho_{i+1} = \rho_i - \frac{P(\rho_i) - \sqrt{X^2 + Y^2}}{P'(\rho_ i)}
+    \end{equation}
+    We deduce $x$:
+    \begin{equation}
+      x = \cos\rho
+    \end{equation}
+    and inverting the projection formulae, we find
+    \begin{eqnarray}
+      y & = & \sqrt{\frac{1 - x^2}{X^2 + Y^2}}X \\
+      z & = & \sqrt{\frac{1 - x^2}{X^2 + Y^2}}Y
+    \end{eqnarray}
+      

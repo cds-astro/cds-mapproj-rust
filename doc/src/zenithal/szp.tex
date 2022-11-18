@@ -1,0 +1,173 @@
+\subsection{SZP: Slant zenithal perspective \label{sec:szp}}
+
+  The projection plane is tangential to the sphere in $C=(1, 0, 0)$ and the 
+  projection point $P$ is located at position $(x_p, y_p, z_p)$ in the local frame
+  (i.e. the frame centered at the center $O$ of the unit sphere).
+  In FITS \citep[see][\S 5.1.2]{Calabretta2002}, the position of $P$ is given by three parameters:
+  \begin{itemize}
+    \item $\mu$ - distance $OP$ (PV$i\_1a$, no units, default = 0), negative if $P$ is on the side of planewards hemisphere, positive otherwise
+    \item $\phi_c$   - angle (PV$i\_2a$, in degrees, default = 0) between the opposite of the $Y$-axis and the projection of $P$ onto the $XY$-plane)
+    \item $\theta_c$ - angle (PV$i\_3a$, in degrees, default = 90) between the $y$-axis rotated of the angle $\frac{\pi}{2} - \frac{\pi}{180}\phi_c$ around the $x$-axis
+                       and the point of intersection between $PO$ and the unit sphere on the planewards side (planewards hemisphere)
+  \end{itemize}
+  In our framework, we prefer using an always positive distance $r_p$:
+  \begin{itemize}
+    \item $r_p$ - distance (no units) of the point $P$ to the center of the sphere, always positive
+    \item $\theta_p$ - angle (in radian, default =  $\pi/2$) between the $X$-axis and the segment joining $C$ and the projection of $P$ on the $XY$-plane
+    \item $\rho_p$   - angular distance (in radians, default = 0) between the point $C$ and the intersecition of $PO$ with the unit sphere
+  \end{itemize}
+  So that the coordinates of $P$ are:
+  \begin{eqnarray}
+     x_p & = & r_p \cos\rho_p \\
+     y_p & = & r_p \sin\rho_p \cos\theta_p\\
+     z_p & = & r_p \sin\rho_p \sin\theta_p
+  \end{eqnarray}
+  Using longitude $l_r$ and latitude $b_r$:
+  \begin{eqnarray}
+     x_p & = & r_p \cos b_p \cos l_p \\
+     y_p & = & r_p \cos b_p \sin l_p\\
+     z_p & = & r_p \sin b_p
+  \end{eqnarray}
+  so that the relation betwee both systems are:
+  \begin{eqnarray}
+    \theta_p & = & \arctan{ \frac{\sin b_p}{\cos b_p \sin l_p} } \\
+    \rho_p & = & \arccos{ \cos b_p \cos l_p }
+  \end{eqnarray}
+
+  The relations between the FITS conventions and this conventions are (see Eq. \ref{eq:zen:theta} and \ref{eq:zen:rho}):
+  \begin{eqnarray}
+    r_p & = & |\mu| \\
+    \theta_p & = & \frac{\pi}{2} - \frac{\pi}{180}\phi_c     \\
+    \rho_p & = & 
+        \begin{cases}
+           \frac{\pi}{2} - \frac{\pi}{180}\theta_c,& \text{if } \mu < 0 \\
+           \frac{\pi}{2} + \frac{\pi}{180}\theta_c,& \text{otherwise}
+        \end{cases}
+  \end{eqnarray}
+  Again, according to if we look from the inside or the outside of the sphere
+  we may consider
+  \begin{equation}
+    \theta_p = \frac{3\pi}{2} - \frac{\pi}{180}\phi_c
+  \end{equation}
+  %\begin{eqnarray}
+  %  X & = & D \cos\theta \\
+  %  Y & = & D \frac{\sin\theta}{\cos\gamma} \\
+  %  D & = & \frac{(\mu + 1) \sin\rho}{(\mu + \cos\rho) - \sin\rho\sin\theta\tan\gamma}
+  %\end{eqnarray}
+
+\subsubsection{Projection}
+
+  We consider a point $A$ of coordinates $(x, y, z)$ on the unit sphere
+  and $A'$ of coordinates $(1, X, Y)$ its projection on the projection plane such that $PAA'$ are on a same straitgh line.
+  We note $P'$ of coordinate $(1, y_p, z_p)$ the projection of $P$ onto the projection plane such that $PP'$ is perpendicular to the projection plane.
+  We also note $A''$ the projection of $A$ on $PP'$ such that $AA''\perp PP'$.\\
+  If $r_p \in [0, 1]$, i.e. the projection point is inside the unit sphere, we can project all point suchs that $x > x_p$.
+  If $r_p > 1$ and $\rho_r > \pi / 2$ ($\Leftrightarrow x_p >0$), then hidden points are nearest points from $P$ which are in the cone of center $P$ and delimited by
+  the tangents of the unit sphere passing through $P$. We note $T$ a point  of the unit sphere such taht $TP$ is tangantial to the sphere
+  an $T'$ the projection of $T$ onto $PO$ (such that the triangle $PT'T$ is right in $T'$.
+  Angle $\sin\widehat{OPT} = \frac{1}{r_p}$ and $\widehat{TOP}=\frac{\pi}{2} - \widehat{OPT}$.
+  Hidden points are defined such that:
+  \begin{equation*}
+    \frac{\vec{OA}.\vec{OP}}{||\vec{OP}||} > \cos\widehat{TOP} = \sin\widehat{OPT}
+  \end{equation*}
+  I.e.
+  \begin{equation}
+    xx_p + yy_p + zz_p > 1 \label{eq:szp:proj:bounds1}
+  \end{equation}
+  If $r_p > 1$ and $\rho_r < \pi / 2$ ($\Leftrightarrow x_p <0$), the result is the opposite: only the nearest point
+  from $P$ which are in the cone of center $P$ and delimited by
+  the tangents of the unit sphere passing through $P$ are projected.
+  Hidden points are defined such that:
+  \begin{equation}
+    xx_p + yy_p + zz_p < 1 \label{eq:szp:proj:bounds2}
+  \end{equation}
+  We can write this using the XOR operator ($\hat{\;}$), so points are hidden is the following expression is true:
+  \begin{equation*}
+    \left[(r_p \le 1)\:\&\&\:(x \le x_p)\right]\:||\:\left[(r_p > 1)\:\&\&\:\left( (x_p < 0) \hat{\;} (xx_p + yy_p + zz_p > 1)\right)\right] 
+  \end{equation*}
+
+  We now want to compute the projected positions of valid points considering the $xz$-plane in a first step.
+  We use the triangle $A_{xz}'P_{xz}P_{xz}'$ and $A_{xz}P_{xz}A_{xz}''$ (we use notation $_{xz}$ to designate the projections on the $xz$ plane).
+  \begin{eqnarray*}
+    \tan\widehat{A_{xz}'P_{xz}P_{xz}'} & = & \frac{Y - z_p}{1 - x_p} \\
+    \tan\widehat{A_{xz}P_{xz}A_{xz}''} & = & \frac{z - z_p}{x - x_p}
+  \end{eqnarray*}
+  As the two angle are equals, we easily express $Y$ (and similarly for $X$):
+  \begin{eqnarray}
+    X & = & (1 - x_p)\frac{y - y_p}{x - x_p} + y_p = \frac{y (1 - x_p) - y_p (1 - x)}{x - x_p} \label{eq:szp:X} \\
+    Y & = & (1 - x_p)\frac{z - z_p}{x - x_p} + z_p = \frac{z (1 - x_p) - z_p (1 - x)}{x - x_p} \label{eq:szp:Y}
+  \end{eqnarray}
+
+\subsubsection{Deprojection}
+
+  We introduces the following simplifying notations from the previous section:
+  \begin{eqnarray*}
+    T_X & = & \tan\widehat{A_{xy}'P_{xy}P_{xy}'} = \frac{X - y_p}{1 - x_p} \\ 
+    T_Y & = & \tan\widehat{A_{xz}'P_{xz}P_{xz}'} = \frac{Y - z_p}{1 - x_p}
+  \end{eqnarray*}
+  We need first to compute $x$ from previous equations Eq. \ref{eq:szp:X} and \ref{eq:szp:Y} removing $y$ and $z$ 
+  terms remembering that $y^2 + z^2 = 1 - x^2$.
+  \begin{eqnarray*}
+    y & = & T_X (x - x_p) + y_p = x T_X - (T_X x_p - y_p) \\
+    z & = & T_Y (x - x_p) + z_p = x T_Y - (T_Y x_p - z_p) 
+  \end{eqnarray*}
+  We introduce notations:
+  \begin{eqnarray*}
+    T_X' & = & T_X x_p - y_p \\
+    T_Y' & = & T_Y x_p - z_p
+  \end{eqnarray*}
+  We now take the sum of the squares of both previous equations (in $y$ and $z$) to obtain an equation of second king in $x$ (remembering that $y^2 + z^2 = 1 - x^2$):
+  \begin{eqnarray*}
+    x^2(T_X^2 + T_Y^2 + 1) -2x(T_X T_X' + T_Y T_Y')  + (T_X'^2 + T_Y'^2 - 1) & = & 0 \\
+  \end{eqnarray*}
+  So
+  \begin{equation}
+    x = \frac{-b\pm \sqrt{b^2 - 4ac}}{2a}
+  \end{equation}
+  with
+  \begin{eqnarray*}
+    a & = & T_X^2 + T_Y^2 + 1 \\
+    b & = & -2(T_X T_X' + T_Y T_Y')  \\
+    c & = & T_X'^2 + T_Y'^2 - 1
+  \end{eqnarray*}
+  If we divide all three coefficients $a$, $b$, and $c$ by 2, we find the same result as in \cite{Calabretta2002}:
+  \begin{equation*}
+    x = \frac{-b'\pm \sqrt{b'^2 - ac}}{a}
+  \end{equation*}
+  with $b' = b/2$.
+  We keep the highest $x$ (that must be $\in [1, -1]$, i.e. following solution (and we derive easily $y$ and $z$
+  from the expressions of $T_X$ and $T_Y$):
+  \begin{eqnarray}
+    x & = & \frac{-b + \sqrt{b^2 - 4ac}}{2a} \\
+    y & = & T_X(x - x_p) + y_p \\
+    z & = & T_Y(x - x_p) + z_p
+  \end{eqnarray}
+
+  About validity if $r>1$.
+  Coordiantes of a point in the projection plane are $(1, X, Y)$.
+  The projection of the cone of vertex $P$ ($\vec{p}$), axe $PO$ and angle $\psi=\arcsin(1/r_p)$ (so that it is tangential to the unit sphere)
+  on the projection plane is a conic section (so a circle, an ellipse, a parabola or an hyperbola).
+  All point $\vec{v}$ inside the cone are such that (we perfrom a translation to place the origin of the frame at the vertex of cone):
+  \begin{equation*}
+    |\frac{(\vec{v}-\vec{p}).(\vec{-p})}{||\vec{v}-\vec{p}||\times ||\vec{-p}||}| \ge \cos\arcsin\frac{1}{r_p}
+  \end{equation*}
+  Thus, using Eq. (\ref{eq:cosarcsin}),
+  \begin{eqnarray*}
+    \frac{|\vec{p}^2-\vec{v}.\vec{p}|}{r_p\sqrt{\vec{v}^2+r_p^2-2\vec{v}.\vec{p}}} & \ge & \sqrt{1 - \frac{1}{r_p^2}} \\
+    \frac{|r_p^2-\vec{v}.\vec{p}|}{\sqrt{\vec{v}^2+r_p^2-2\vec{v}.\vec{p}}} & \ge & \sqrt{r_p^2 - 1}
+  \end{eqnarray*}
+  or, written explicitly:
+  \begin{equation}
+    \frac{\left[ x_p(1 - x_p) + y_p(X - y_p) + z_p(Y - z_p) \right]^2}{(1 - x_p)^2 + (X - y_p)^2 + (Y - z_p)^2} \ge r^2 - 1
+  \end{equation}
+  Remark: in the projection part, $\vec{v}^2=1$, so we could have use instead of Eq. (\ref{eq:szp:proj:bounds1}) and (\ref{eq:szp:proj:bounds2})
+  \begin{eqnarray*}
+    \frac{|r_p^2-\vec{v}.\vec{p}|}{\sqrt{1+r_p^2-2\vec{v}.\vec{p}}} & \ge & \sqrt{r_p^2 - 1}
+  \end{eqnarray*}
+  i.e.
+  \begin{equation}
+    \frac{\left[ x_p(x - x_p) + y_p(y - y_p) + z_p(z - z_p) \right]^2}{(x - x_p)^2 + (y - y_p)^2 + (z - z_p)^2} \ge r^2 - 1
+  \end{equation}
+  but developping this inequation we find the simple forms  Eq. (\ref{eq:szp:proj:bounds1}) and (\ref{eq:szp:proj:bounds2})
+  % (r^2 - v.p) / (1 -2v.p + r^2) >= r^2 - 1
+

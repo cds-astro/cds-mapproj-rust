@@ -1,0 +1,89 @@
+\subsection{AIR: Airy projection}
+
+  In the Airy projection (c.f. book ``Flattening the Earth: Two Thousand Years of Map Projections'' by John P. Snyder):
+  \begin{eqnarray}
+    R & = & 2\left(\frac{\ln\frac{1}{\cos\frac{\rho}{2}}}{\tan\frac{\rho}{2}}
+                + \tan\frac{\rho}{2} \frac{\ln\frac{1}{\cos\frac{\rho_b}{2}}}{\tan^2\frac{\rho_b}{2}}
+        \right) \\
+      & = & -2\left(\frac{\ln \cos\frac{\rho}{2}}{\tan\frac{\rho}{2}}
+                + \tan\frac{\rho}{2} \frac{\ln \cos\frac{\rho_b}{2}}{\tan^2\frac{\rho_b}{2}} \right)
+  \end{eqnarray}
+
+  \subsubsection{Projection}
+
+    We use the fact that:
+    \begin{eqnarray}
+      \cos\frac{\rho}{2} & = & \sqrt{\frac{1 + \cos\rho}{2}} \\
+      \sin\frac{\rho}{2} & = & \sqrt{\frac{1 - \cos\rho}{2}} \\
+      \tan\frac{\rho}{2} & = & \sqrt{\frac{1 - \cos\rho}{1 + \cos\rho}}
+    \end{eqnarray}
+    and that $x = \cos\rho$ to write
+    %\begin{equation}
+    %  R = \sqrt{\frac{1 + x}{1 - x}}\left(
+    %        \ln(\frac{x+1}{2})
+    %      + \frac{1 - x}{1 - x_b}\frac{1 + x_b}{1 + x}\ln(\frac{x_b+1}{2})
+    %  \right) 
+    %\end{equation}
+    \begin{equation}
+      R = -\sqrt{\frac{1 + x}{1 - x}} \ln(\frac{x+1}{2})
+        - \sqrt{\frac{1 - x}{1 + x}} \frac{1 + x_b}{1 - x_b}\ln(\frac{x_b+1}{2})
+    \end{equation}
+    Thus the projection formulae are:
+    \begin{eqnarray}
+      X & = & R \frac{y}{\sqrt{y^2 + z^2}} = R \frac{y}{\sqrt{(1-x)(1+x)}} \\
+        & = & -y\left(\frac{\ln(\frac{x+1}{2})}{1-x}
+                 + \frac{1}{1+x}\frac{1 + x_b}{1 - x_b}\ln(\frac{x_b+1}{2}) \right) \\
+      Y & = & -z\left(\frac{\ln(\frac{x+1}{2})}{1-x}
+                 + \frac{1}{1+x}\frac{1 + x_b}{1 - x_b}\ln(\frac{x_b+1}{2}) \right)
+    \end{eqnarray}
+
+  \subsubsection{Deprojection}
+
+    \begin{eqnarray}
+      \sqrt{X^2 + Y^2}
+        & = & \sqrt{(1-x)(1+x)}\left(\frac{\ln(\frac{x+1}{2})}{1-x}
+              + \frac{1}{1+x}\frac{1 + x_b}{1 - x_b}\ln(\frac{x_b+1}{2}) \right) \\
+        & = & R \\ 
+        & = & \sqrt{\frac{1 + x}{1 - x}} \ln(\frac{x+1}{2})
+        + \sqrt{\frac{1 - x}{1 + x}} \frac{1 + x_b}{1 - x_b}\ln(\frac{x_b+1}{2}) 
+    \end{eqnarray}
+    We use the Newton-Raphson's algorithm to solve the equation
+    \begin{equation}
+      \sqrt{\frac{1 + x}{1 - x}} \ln(\frac{x+1}{2})
+        + \sqrt{\frac{1 - x}{1 + x}} \frac{1 + x_b}{1 - x_b}\ln(\frac{x_b+1}{2}) - \sqrt{X^2+Y^2} = 0
+    \end{equation}
+    The derivatived of the parts of the function $R(x)$ are:
+    \begin{equation}
+      \frac{\partial}{\partial x} \sqrt{\frac{1+x}{1-x}} = \frac{1}{(1-x)^2}\sqrt{\frac{1-x}{1+x}}
+    \end{equation}
+    \begin{equation}
+      \frac{\partial}{\partial x} \sqrt{\frac{1-x}{1+x}} = -\frac{1}{(1+x)^2}\sqrt{\frac{1+x}{1-x}}
+    \end{equation}
+    \begin{equation}
+      \frac{\partial}{\partial x} \ln(\frac{x+1}{2}) = \frac{1}{1+x}
+    \end{equation} 
+    We deduce the value of the derivative of $R(x)$:
+    \begin{eqnarray}
+      \frac{\partial}{\partial x} R(x) & = & \frac{1}{1+x}\sqrt{\frac{1+x}{1-x}} \\
+        & & + \frac{1}{(1-x)^2}\sqrt{\frac{1-x}{1+x}}\ln(\frac{x+1}{2}) \\
+        & & -\frac{1}{(1+x)^2}\sqrt{\frac{1+x}{1-x}} \frac{1 + x_b}{1 - x_b}\ln(\frac{x_b+1}{2}) \\
+       R'(x) & = & \frac{1}{\sqrt{1-x^2}}\left(1 + \frac{\ln(\frac{x+1}{2})}{1-x}
+                - \frac{1}{1+x}\frac{1 + x_b}{1 - x_b}\ln(\frac{x_b+1}{2})
+              \right)
+    \end{eqnarray}
+    So we find $x$ iteratively:
+    \begin{equation}
+      x_{i+1} = x_i - \frac{R(x) - \sqrt{X^2 + Y^2}}{R'(x)}
+    \end{equation}
+    We deduce the two other coordinates:
+    \begin{eqnarray}
+      y & = & \frac{X}{\sqrt{X^2 + Y^2}}\sqrt{1 - x^2} \\
+      z & = & \frac{Y}{\sqrt{X^2 + Y^2}}\sqrt{1 - x^2}
+    \end{eqnarray}
+
+    To start the iteration process, we have to start with a first approximation.
+    We can make a very raw approximation replacing the full expression of $R$ by:
+    \begin{equation}
+      R = \ln(\frac{1}{2})(1 - x^2) + (1 - x) \frac{1 + x_b}{1 - x_b}\ln(\frac{x_b+1}{2})
+    \end{equation}
+    This is an equation of the form $a x^2 + b x + c = 0$, ... we keep value of $x \in ]-1, 1]$.

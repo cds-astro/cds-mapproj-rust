@@ -1,0 +1,39 @@
+\subsection{ARC: Zenithal equidistant}
+
+  The Zenithal equidistant projection is the simple case in which:
+  \begin{equation}
+    R = \rho
+  \end{equation}
+
+  \subsubsection{Projection}
+
+    From Eq. (\ref{eq:zenithal.X}), (\ref{eq:zenithal.Y}), (\ref{eq:zen.x}) and (\ref{eq:zen.y}),
+    we simply have:
+    \begin{eqnarray}
+      X & = & \rho\cos\theta = \frac{\rho}{\sin\rho}y
+              = \frac{\arcsin\sqrt{y^2 + z^2}}{\sqrt{y^2 + z^2}}y
+              = y\arcsinc r \\
+      Y & = & \rho\sin\theta = \frac{\rho}{\sin\rho}z
+              = \frac{\arcsin\sqrt{y^2 + z^2}}{\sqrt{y^2 + z^2}}z
+              = z\arcsinc r 
+    \end{eqnarray}
+    In practice for large angular distances (let us say $\rho>\pi/2$), we 
+    replace $\arcsinc r$ by $\arccos(x) / r$ for a better numercial precision.
+
+  \subsubsection{Deprojection}
+  
+    We easily inverse the previous equations:
+    \begin{equation}
+      X^2 + Y^2 = \rho^2.
+    \end{equation}
+    Using Eq. (\ref{eq:zen.x}), we deduce $x$
+    \begin{equation}
+      x = \cos\rho = \cos(\sqrt{X^2 + Y^2})
+    \end{equation}
+    and from Eq. (\ref{eq:zen.y}), (\ref{eq:zen.z}), (\ref{eq:zenithal.X}) and (\ref{eq:zenithal.Y})
+    we deduce
+    \begin{eqnarray}
+      y & = & X \frac{\sin\rho}{\rho} = X \sinc(\sqrt{X^2 + Y^2}) \\  
+      z & = & Y \frac{\sin\rho}{\rho} = Y \sinc(\sqrt{X^2 + Y^2})
+    \end{eqnarray}
+

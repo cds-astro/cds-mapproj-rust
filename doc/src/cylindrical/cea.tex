@@ -1,0 +1,29 @@
+\subsection{CEA: cylindrical equal area}
+
+  The cylindrical equal area projection depdends on a parameter $\lambda$
+  so it is conformal at latitudes $\delta_c = \pm \arccos\sqrt{\lambda}$.
+  The projection formulae are
+  \begin{eqnarray}
+    X & = & \alpha, \\
+    Y & = & \frac{\sin\delta}{\lambda}.
+  \end{eqnarray}
+  WARNING: $X$ and $Y$ must be multiplied by $180/\pi$ to be consistent
+  with FITS WCS conventions.
+
+  \subsubsection{Projection}
+    
+    Given the projection formula depending on $(\alpha, \delta)$, we deduce
+    \begin{eqnarray}
+      X & = & \arctan 2(y, x), \\
+      Y & = & \frac{z}{\lambda}
+    \end{eqnarray}
+
+  \subsubsection{Deprojection}
+
+    \begin{eqnarray}
+      x & = & \sqrt{1 - z^2}\cos X \\
+      y & = & \sqrt{1 - z^2}\sin Y \\
+      z & = & \lambda Y
+    \end{eqnarray} 
+
+

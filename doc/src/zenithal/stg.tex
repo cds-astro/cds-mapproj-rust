@@ -1,0 +1,57 @@
+\subsection{STG: Stereographic}
+
+  The Stereographic projection is a special case of zenithal perspective
+  projection (\S \ref{sec:azp}) with $\mu=1$ and $\gamma=0$.
+  
+  \subsubsection{Projection}
+
+    We simply apply Eq. (\ref{eq:zenithal.X}) and  (\ref{eq:zenithal.Y})
+    with
+    \begin{equation}
+      R = 2\tan\frac{\rho}{2}.
+    \end{equation}
+    We project the full sphere on the full $XY$-plane with a divergent point at
+    $(\alpha, \delta) = (180, 0)$,  i.e. for $x=-1$.
+
+    Using Eq. (\ref{eq:tanx2}) we note
+    \begin{eqnarray}
+      R & = & 2\frac{\sin\rho}{1 + \cos\rho}, \\
+        & = & 2\frac{\sin\rho}{1 + x},
+    \end{eqnarray}
+    which leads to the projection formulae:
+    \begin{eqnarray}
+      X & = & \frac{2y}{1 + x}; \label{eq:stg.proj.X} \\
+      Y & = & \frac{2z}{1 + x}. \label{eq:stg.proj.Y}
+    \end{eqnarray}
+
+  \subsubsection{Deprojection}
+     
+    From the two equiations
+    \begin{eqnarray}
+      R^2 & = & X^2 + Y^2 = \frac{4(y^2 + z^2)}{(1 + x)^2}, \\
+      1 & = & x^2 + y^2 + z^2,
+    \end{eqnarray}
+    we deduce
+    \begin{equation}
+      R^2 = \frac{4(1 - x^2)}{(1 + x)^2} = \frac{4(1 - x)}{(1 + x)},
+    \end{equation}
+    That we solve to obtain $x$:
+    \begin{equation}
+      x = \frac{4 - R^2}{4 + R^2}
+    \end{equation}
+    From the projection formulae Eq. (\ref{eq:stg.proj.X}) and (\ref{eq:stg.proj.Y}) we deduce
+    \begin{eqnarray}
+      y & = & \frac{1}{2}X(1 + x) = \frac{4X}{4 + R^2}\\
+      z & = & \frac{1}{2}Y(1 + x) = \frac{4Y}{4 + R^2}
+    \end{eqnarray}
+    We finally find the deprojection formulae:
+    \begin{eqnarray}
+      R' & = & \frac{X^2 + Y^2}{4}, \\
+      w & = & \frac{1}{1 + R'}, \\
+      x & = & w(1-R'), \label{eq:stg.deproj.x} \\
+      y & = & wX, \label{eq:stg.deproj.y}\\
+      z & = & wY. \label{eq:stg.deproj.z}
+    \end{eqnarray}
+
+
+

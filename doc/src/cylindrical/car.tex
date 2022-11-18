@@ -1,0 +1,33 @@
+\subsection{CAR: Platte carr\'ee}
+
+  This is certainly the simplest cylindrical projection.
+
+  \subsubsection{Projection}
+
+    The projection formulae are
+    \begin{eqnarray}
+      X & = & \alpha, \\
+      Y & = & \delta.
+    \end{eqnarray}
+    So in our framework, 
+    \begin{eqnarray}
+      X & = & \arctan 2(y, x), \\
+      Y & = & \arcsin z = \arctan 2(z, \sqrt(x^2 + y^2)).
+    \end{eqnarray}
+    For precision reasons, it is better not to use $\arcsin z$.
+
+
+  \subsubsection{Deprojection}
+
+    The de-projection formulae are
+    \begin{eqnarray}
+      \alpha & = & X, \\
+      \delta & = & Y.
+    \end{eqnarray}
+    So in our framework,
+    \begin{eqnarray}
+      x & = & \cos Y \cos X, \\
+      y & = & \cos Y \sin X, \\
+      z & = & \sin Y.
+    \end{eqnarray}
+

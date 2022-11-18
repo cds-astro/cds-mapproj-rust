@@ -1,0 +1,142 @@
+\subsection{MOL: Mollweide's}
+
+  The Mollweide's projection is defined such that the full sky is projected
+  inside an ellipse of surface area equal to $4\pi$ (the surface area of the
+  unit sphere), with the half width ($W$, semi-major axis) equal twice the
+  half height size ($H$, semi-minor axis).
+  And the $x$-axis correspond to the longitude $\alpha \in [0, 2\pi[$ with
+  $\alpha = 0$ corresponding to $X = 0$, $\alpha=\pi$ to $X=W$,
+  $\alpha=\pi+\varepsilon$ to $X=-W+\eta$ and $\alpha=2\pi-\varepsilon$ to $X=-\eta$.
+  The base equations of are 
+  \begin{eqnarray*}
+    X & = & W \frac{\alpha}{\pi} \cos\gamma \\
+    Y & = & H                    \sin\gamma
+  \end{eqnarray*}
+  with the semi-major and semi-minor axis $a$ and $b$ respectively, such that
+  \begin{eqnarray*}
+    a & = & W = 2H \\
+    b & = & H
+  \end{eqnarray*}
+  and the surface area of the ellipse $\pi a b = 4\pi$ leading to $H=\sqrt{2}$
+  and thus to:
+  \begin{eqnarray}
+    X & = & 2\sqrt{2} \frac{\alpha}{\pi} \cos\gamma \\
+    Y & = &  \sqrt{2}                    \sin\gamma
+  \end{eqnarray}
+  This transformation is made to be equiareal.
+  So let's compute the determinent of its Jacobian:
+  \begin{eqnarray*}
+    |\det J| & = & \begin{vmatrix}
+                     \frac{\partial X}{\partial \alpha} & \frac{\partial X}{\partial \gamma} \\
+                     \frac{\partial Y}{\partial \alpha} & \frac{\partial Y}{\partial \gamma}
+                   \end{vmatrix} \\
+             & = & \begin{vmatrix}
+                     \frac{2\sqrt{2}}{\pi} \cos\gamma & -2\sqrt{2} \frac{\alpha}{\pi} \sin\gamma \\
+                                                    0 & \sqrt{2}\cos\gamma
+                   \end{vmatrix} \\
+             & = & \frac{4}{\pi}\cos^2\gamma
+  \end{eqnarray*}
+  Thus
+  \begin{equation*}
+    \mathrm{d}X\mathrm{d}Y = \frac{4}{\pi}\cos^2\gamma \mathrm{d}\alpha\mathrm{d}\gamma
+  \end{equation*}
+  To be equiareal, we must have (see Eq. \ref{eq:equiareal}):
+  \begin{equation*}
+    \frac{4}{\pi}\cos^2\gamma \mathrm{d}\alpha\mathrm{d}\gamma \propto \cos\delta\mathrm{d}\alpha\mathrm{d}\delta
+  \end{equation*}
+  But we know that the surface area of the projection in the plane is equal to $4\pi$, i.e. 
+  the same value as for orginial coordinates.
+  So we must replace the previous proportionality by a strict equality,
+  and we solve integrating on both sides:
+  \begin{eqnarray*}
+    \frac{4}{\pi}\cos^2\gamma \mathrm{d}\alpha\mathrm{d}\gamma & = & \cos\delta\mathrm{d}\alpha\mathrm{d}\delta \\
+    \frac{4}{\pi} \int \frac{\cos(2\gamma) + 1}{2}\mathrm{d}\gamma & = & \int \cos\delta\mathrm{d}\delta \\
+    \frac{2}{\pi} (\frac{1}{2}\sin(2\gamma) + \gamma) & = & \sin\delta
+  \end{eqnarray*} 
+  So we finally find the transcendental equation
+  \begin{equation}
+    \pi \sin\delta = 2\gamma + \sin(2\gamma)
+    \label{eq:mollweide}
+  \end{equation}
+
+  \subsubsection{Projection}
+
+    Given the previous section, to compute Mollweide's projection given
+    a couple $(\alpha, \delta)$, first solve the previous transcendental
+    equation Eq. (\ref{eq:mollweide}) using e.g. the Newton-Raphson method (numerical method).
+    So use:
+    \begin{equation}
+      x_{i+1} = x_i - \frac{f(x_i)}{f'(x_i)}
+    \end{equation}
+    in which
+    \begin{eqnarray*}
+      f(x) & = & 2x + \sin(2x) - \pi \sin\delta \\
+     f'(x) & = & 2 (1 + \cos(2x)) % = 4\cos^2(x)
+    \end{eqnarray*}
+    For simplicity, we may use $x'=2x$ and (multiplying both side by a 2)
+    use the iteration:
+    \begin{equation}
+      x'_{i+1} = x'_i - \frac{x'_i + \sin x'_i - \pi \sin\delta}{1 + \cos(x'_i)}
+    \end{equation}
+
+    Once $\gamma$ has been obtained numerically, we are able to apply the projection equations:
+    \begin{eqnarray}
+      X & = & 2\sqrt{2} \frac{\alpha}{\pi} \cos\gamma \label{eq:proj.mol.X}\\
+      Y & = &  \sqrt{2}                    \sin\gamma \label{eq:proj.mol.Y}
+    \end{eqnarray}
+
+  \subsubsection{Deprojection}
+
+    We multiplying both projection equations Eq. (\ref{eq:proj.mol.X}) and (\ref{eq:proj.mol.Y}),
+    leading to
+    \begin{equation}
+      XY = 2\cos\gamma\sin\gamma\frac{2\alpha}{\pi},
+    \end{equation}
+    and using Eq. (\ref{eq:sin2x}), we find
+    \begin{equation}
+      \sin(2\gamma) = XY\frac{\pi}{2\alpha} \label{eq:mol.deproj.sin2g}.
+    \end{equation}
+    From Eq. (\ref{eq:cos2sin2eq1}) and then using Eq. (\ref{eq:proj.mol.Y}) we find
+    \begin{equation}
+      \cos\gamma = \sqrt{1-\sin^2\gamma} = \sqrt{1 - \frac{Y^2}{2}}.
+    \end{equation}
+    Injecting this result in Eq. (\ref{eq:proj.mol.X}), we find
+    \begin{equation}
+      \alpha = \frac{\pi X}{2\sqrt{2 - Y^2}}.
+      \label{eq:mol.deproj.alpha}
+    \end{equation}
+    Before apllying this equation, we have to check the special value $Y=\pm \sqrt{2}$
+    (or in Software $2 - Y^2\le 0$), in which case
+    \begin{eqnarray}
+       \alpha & = & 0, \\
+       \delta & = & \pm\frac{\pi}{2},
+    \end{eqnarray}
+    the sign of $\delta$ being the same as the sign of $Y$.\\
+    From Eq. (\ref{eq:mollweide}):
+    \begin{equation}
+      \delta = \arcsin \frac{2\gamma + \sin(2\gamma)}{\pi}.
+    \end{equation} 
+    We have the expression of $\gamma$ in Eq. (\ref{eq:proj.mol.Y})
+    \begin{equation}
+      \gamma = \arcsin\frac{Y}{\sqrt{2}},
+    \end{equation}
+    and from Eq. (\ref{eq:mol.deproj.sin2g}) and (\ref{eq:mol.deproj.alpha}) we obtain
+    \begin{equation}
+      \sin(2\gamma) = Y\sqrt{2 - Y^2}.
+    \end{equation}
+    We deduce from the three above equations that
+    \begin{equation}
+      \delta = \arcsin\frac{2\arcsin\frac{Y}{\sqrt{2}} + Y\sqrt{2 - Y^2}}
+                           {\pi}.
+      \label{eq:mol.deproj.delta}
+    \end{equation}
+    The deprojection formulae are Eq. (\ref{eq:mol.deproj.alpha}) and (\ref{eq:mol.deproj.delta}).
+    
+
+    %\begin{eqnarray}
+    %  \alpha & = & \frac{\pi X}{2\sqrt{2}\sqrt{1-\frac{Y^2}{2}}} = \frac{\pi X}{2\sqrt{2-Y^2}} \\
+    %  \delta & = & \arcsin\left(\frac{2\asin(\frac{Y}{\sqrt{2}})}{\pi} + \frac{}{\pi} \righ)
+    %\end{eqnarray}
+
+
+

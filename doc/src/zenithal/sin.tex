@@ -1,0 +1,159 @@
+\subsection{SIN: Slant orthographic}
+
+  It is the slant zenithal perspective (SZP) projection with the distance 
+  between the centre of the sphere and the projection point $r_p$ equal to $+\infty$.
+
+  \subsubsection{Projection}
+
+    We use the limit of the projection equations of SZP, that is Eq. (\ref{eq:szp:X}) and (\ref{eq:szp:Y}),
+    when $r_p\to+\infty$:
+    \begin{eqnarray}
+      X & = & \frac{-yx_p-y_p(1-x)}{-x_p} = y + \xi_p(1-x) \label{eq:sin.proj.X} \\
+      Y & = & z + \eta_p (1-x) \label{eq:sin.proj.Y}
+    \end{eqnarray}
+    with
+    \begin{eqnarray}
+      \xi_p  & = & \frac{y_p}{x_p} = \tan\rho_p \cos\theta_p \\
+      \eta_p & = & \frac{z_p}{x_p} = \tan\rho_p \sin\theta_p
+    \end{eqnarray}
+    The unitless parameters $\xi$ and $\eta$ are provided by the FITS keywords $PVi\_1a$ and $PVi\_2a$
+    respectively. Both their default values equal zero. But in the FIST definition, 
+    \begin{eqnarray}
+      \xi  & = & \frac{\cos\theta_c}{\sin\theta_c}\sin\phi_c \\
+      \eta & = & -\frac{\cos\theta_c}{\sin\theta_c}\cos\phi_c\
+    \end{eqnarray}
+    with the relation between $(\rho_p, \theta_p)$ and $(\theta_c, \phi_c)$ given in \S \ref{sec:szp},
+    leading to (case $\mu>0$)
+    \begin{eqnarray}
+      \xi_p & = & -\xi \\
+      \eta_p & = & \eta
+    \end{eqnarray}
+    Demonstration:
+    \begin{eqnarray}
+      \xi_p & = & \tan\rho_p \cos\theta_p \\
+            & = & \frac{\sin(\frac{\pi}{2} + \theta_c)}{\cos(\frac{\pi}{2} + \theta_c)} \cos(\frac{\pi}{2} - \phi_c) \\
+	    & = & \frac{\sin(\frac{\pi}{2} -(-\theta_c))}{\cos(\frac{\pi}{2} - (-\theta_c))} \cos(\frac{\pi}{2} - \phi_c) \\
+	    & = & \frac{\cos(-\theta_c)}{\sin(-\theta_c)} \sin(\phi_c) \\
+	    & = & \frac{\cos(\theta_c)}{-\sin(\theta_c)}\sin(\phi_c) \\
+	    & = & -\xi \\ 
+            %& = & \frac{\sin(\frac{\pi}{2} + \theta_c)}{\cos(\frac{\pi}{2} + \theta_c)} \cos(\frac{3\pi}{2} - \phi_c) \\
+	    %& = & \frac{\sin(\frac{\pi}{2} -(-\theta_c))}{\cos(\frac{\pi}{2} - (-\theta_c))} \cos(\pi + \frac{\pi}{2} - \phi_c) \\
+	    %& = & \frac{\cos(-\theta_c)}{\sin(-\theta_c)} (-\cos(\frac{\pi}{2} - \phi_c)) \\
+	    %& = & \frac{\cos(\theta_c)}{-\sin(\theta_c)} (-\sin(\phi_c)) \\
+	    %& = & \frac{\cos(\theta_c)}{\sin(\theta_c)}\sin(\phi_c) \\
+	    %& = & \xi \\
+      \eta_p & = & \tan\rho_p \sin\theta_p \\
+             & = & \frac{\sin(\frac{\pi}{2} + \theta_c)}{\cos(\frac{\pi}{2} + \theta_c)} \sin(\frac{\pi}{2} - \phi_c) \\
+	     & = & \frac{\cos(\theta_c)}{-\sin(\theta_c)} \cos(\phi_c) \\
+	     & = & \eta
+             %& = & \frac{\sin(\frac{\pi}{2} + \theta_c)}{\cos(\frac{\pi}{2} + \theta_c)} \sin(\frac{3\pi}{2} - \phi_c) \\
+	     %& = & \frac{\sin(\frac{\pi}{2} -(-\theta_c))}{\cos(\frac{\pi}{2} - (-\theta_c))} \sin(\pi + \frac{\pi}{2} - \phi_c) \\
+	     %& = & \frac{\cos(-\theta_c)}{\sin(-\theta_c)} (-\sin(\frac{\pi}{2} - \phi_c)) \\
+	     %& = & \frac{\cos(\theta_c)}{-\sin(\theta_c)} (-\cos(\phi_c)) \\
+             %& = & \frac{\cos(\theta_c)}{\sin(\theta_c)}\cos(\phi_c) \\
+	     %& = & -\eta
+    \end{eqnarray}
+
+    From $(\xi_p, \eta_p)$ we can deduce:
+    \begin{eqnarray}
+      \tan\rho_p & = & -\sqrt{\xi_p^2 + \eta_p^2} \\
+      \rho_p & = & \pi + \arctan(-\sqrt{\xi_p^2 + \eta_p^2}) = \pi - \arctan(\sqrt{\xi_p^2 + \eta_p^2}) \\
+      \theta_p & = & \arctan2(\frac{\eta_p}{-\sqrt{\xi_p^2 + \eta_p^2}}, \frac{\xi_p}{-\sqrt{\xi_p^2 + \eta_p^2}}) \\
+      \cos\theta_p & = & -\frac{\xi_p}{\sqrt{\xi_p^2 + \eta_p^2}} \\
+      \sin\theta_p & = & -\frac{\eta_p}{\sqrt{\xi_p^2 + \eta_p^2}}
+    \end{eqnarray}
+    We know that $\rho_p \in [\pi/2, \pi]$, so $\tan\rho_p$ is always negative.
+    So the right solution of $\tan^2\rho_p = \xi_p^2 + \eta_p^2$ is the value $-\sqrt{\xi_p^2 + \eta_p^2}$.
+    The $\arctan$ function returns value $\in ]-\pi/2, \pi/2[$ and is periodic of period $\pi$, 
+    thus $\rho_p =  \pi + \arctan(-\sqrt{\xi_p^2 + \eta_p^2})$.
+    We can thus deduce the coordiante of $P$ on the unit sphere:
+    \begin{eqnarray}
+      x_p & = & \cos\rho_p \\ 
+          & = & \cos(\pi - \arctan(\sqrt{\xi_p^2 + \eta_p^2})) \\ %-\sqrt{\frac{\xi_p^2 + \eta_p^2}{1 + \xi_p^2 + \eta_p^2}}\\
+	  & = & -\cos \arctan(\sqrt{\xi_p^2 + \eta_p^2}) \\
+	  & = & \frac{-1}{\sqrt{1 + \xi_p^2 + \eta_p^2}} \\
+      y_p & = & \sin\rho_p \cos\theta_p \\ %= \frac{1}{\sqrt{1 + \xi_p^2 + \eta_p^2}}\frac{\xi_p}{\sqrt{\xi_p^2 + \eta_p^2}} \\
+          & = & \sin(\pi - \arctan(\sqrt{\xi_p^2 + \eta_p^2})) \frac{-\xi_p}{\sqrt{\xi_p^2 + \eta_p^2}} \\
+	  & = & \sin(\arctan(\sqrt{\xi_p^2 + \eta_p^2})) \frac{-\xi_p}{\sqrt{\xi_p^2 + \eta_p^2}} \\
+	  & = & \frac{\sqrt{\xi_p^2 + \eta_p^2}}{\sqrt{1 + \xi_p^2 + \eta_p^2}} \frac{-\xi_p}{\sqrt{\xi_p^2 + \eta_p^2}} \\
+	  & = & \frac{-\xi_p}{\sqrt{1 + \xi_p^2 + \eta_p^2}} \\
+      z_p & = & \sin\rho_p \sin\theta_p \\ %= \frac{1}{\sqrt{1 + \xi_p^2 + \eta_p^2}}\frac{\eta_p}{\sqrt{\xi_p^2 + \eta_p^2}}
+          & = & \frac{\sqrt{\xi_p^2 + \eta_p^2}}{\sqrt{1 + \xi_p^2 + \eta_p^2}} \frac{-\eta_p}{\sqrt{\xi_p^2 + \eta_p^2}} \\
+	  & = & \frac{-\eta_p}{\sqrt{1 + \xi_p^2 + \eta_p^2}}
+    \end{eqnarray}
+    To find this result, we use Eq. (\ref{eq:cosarctan}) and (\ref{eq:sinarctan}).
+    We verify that $x_p^2 + y_p^2 + z_p^2 = 1$.\\
+    The projection ``rays'' is a cylinder of axis $(x_p, y_p, z_p)$ and radius equal to one.
+    The projected poitn of the sphere are the points which are the nearest from the projection plane.
+    We thus dedeuce that we can project a point only if it scalar product with $(x_p, y_p, z_p)$ is negative
+    \begin{equation}
+      x x_p + y y_p + z z_p \le 0,
+    \end{equation}
+    the point of the sphere such as $x x_p + y y_p + z z_p = 0$ beigin at the edge.
+    They form an ellipse on the projection plane (intersection between a plane and a cylinder).
+
+  \subsubsection{Deprojection}
+
+    We rewrite Eq. (\ref{eq:sin.proj.X}) and (\ref{eq:sin.proj.Y}) to obtain an expression of $y$ and $z$:
+    \begin{eqnarray}
+      y & = & X -  \xi_p (1-x) \label{eq:sin.deproj.y}\\
+      z & = & Y - \eta_p (1-x) \label{eq:sin.deproj.z}
+    \end{eqnarray}
+    We sum their square (remembering that $y^2+z^2 = 1 - x^2$ to obtain a quadratic equation in $x$:
+    \begin{eqnarray}
+      y^2+z^2 & = & X^2 + Y^2 + (\xi_p^2 + \eta_p^2)(1-x)^2 - 2(1-x)(\xi X + \eta Y) \\
+      1 - x^2 & = & x^2(\xi_p^2 + \eta_p^2) \nonumber \\
+              &   & + 2x[(\xi X + \eta Y) - (\xi_p^2 + \eta_p^2)] \nonumber \\
+              &   & + (X^2 + Y^2) + (\xi_p^2 + \eta_p^2) - 2(\xi X + \eta Y) \\
+	    0 & = & x^2(1 + \xi_p^2 + \eta_p^2) \nonumber \\
+	      &   & + 2x[(\xi X + \eta Y) - (\xi_p^2 + \eta_p^2)] \nonumber \\
+	      &   & + (X^2 + Y^2) + (\xi_p^2 + \eta_p^2) - 2(\xi X + \eta Y)  - 1
+    \end{eqnarray}
+    Thus
+    \begin{equation}
+      x = \frac{-b+\sqrt{b^2-4ac}}{2a} \label{eq:sin.deproj.x}
+    \end{equation}
+    since we keep the value having the largest $x$, so (nearest from the projection plane).
+    In the previous equation the constants are:
+    \begin{eqnarray}
+      \tan^2\rho_p & = & \xi_p^2 + \eta_p^2 \\
+      R^2 & = & X^2 + Y^2 \\
+      R' & = & \xi X + \eta Y \\
+      a & = & (1 + \tan^2\rho_p);  \\
+      b & = & 2(R' -  \tan^2\rho_p); \\
+      c & = & R^2 - 2R' + \tan^2\rho_p - 1.
+    \end{eqnarray}
+    We then deduce $y$ anf $z$ from Eq. (\ref{eq:sin.deproj.y}) and (\ref{eq:sin.deproj.z}).
+
+    Testing the validity of a projection point to be de-projected:
+    We call
+    $M$ a point on the projection plane of coordinates $(1, X, Y)$,
+    $O$ the center of the unit sphere,
+    $P$ the point on the unit sphere of coordinates $(x_p, y_p, z_p)$ and
+    $A$ the projection of $M$ on the plane perpendicular to $\vec{OP}$ passing through $O$.
+    We have:
+    \begin{equation}
+      \vec{OM} = (\vec{OM}.\vec{OP})\vec{OP} + \vec{OA}
+    \end{equation}
+    Thus
+    \begin{equation}
+      \vec{OA} =
+      \begin{pmatrix}
+        1 \\
+	X \\
+	Y
+      \end{pmatrix}
+      - (x_p + y_p X + z_p Y)
+      \begin{pmatrix}
+        x_p \\
+	y_p \\
+	z_p
+      \end{pmatrix}
+    \end{equation}
+    The point is in the projection area if $||\vec{OA}||\le1$, so if
+    \begin{equation}
+      (1 - x_p s)^2 + (X - y_p s)^2 + (Y - z_p s)^2 \le 1
+    \end{equation}
+    noting $s=x_p + y_p X + z_p Y$.
+
+

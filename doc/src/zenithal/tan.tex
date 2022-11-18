@@ -1,0 +1,42 @@
+\subsection{TAN: Gnomonic}
+
+  The Gnomonic projection is a special case of zenithal perspective
+  projection (\S \ref{sec:azp}) with $\mu=0$ and $\gamma=0$.
+
+  \subsubsection{Projection}
+
+    We simply apply Eq. (\ref{eq:zenithal.X}) and  (\ref{eq:zenithal.Y})
+    with
+    \begin{equation}
+      R = \tan\rho
+    \end{equation}
+    We project the hemisphere such that $\rho\le\pi/2$ on the full $XY$-plane
+    with divergences for $\rho=\pi/2$, thus for $x=0$.
+
+    Noting that
+    \begin{equation}
+      R = \frac{\sin\rho}{\cos\rho} = \frac{\sin\rho}{x},
+    \end{equation}
+    and using Eq. (\ref{eq:zenithal.X}) and (\ref{eq:zenithal.Y}) we obtain
+    the projection formulea:
+    \begin{eqnarray}
+      X & = & \frac{y}{x}, \label{eq:tan.proj.X} \\
+      Y & = & \frac{z}{x}. \label{eq:stg.proj.Y}
+    \end{eqnarray}
+
+  \subsubsection{Deprojection}
+
+    We have
+    \begin{equation}
+      R^2 = X^2 + Y^2 = \frac{r^2}{x^2} = \frac{1 - x^2}{x^2},
+    \end{equation}
+    which leads to
+    \begin{equation}
+      x = \frac{1}{\sqrt{1 + X^2 + Y^2}}
+    \end{equation}
+    and using Eq. (\ref{eq:tan.proj.X}) and (\ref{eq:stg.proj.Y}) we obtain
+    \begin{eqnarray}
+      y & = & xX \\
+      z & = & xY
+    \end{eqnarray}
+
