@@ -4,7 +4,7 @@ use std::f64::consts::PI;
 pub mod math;
 pub mod sip;
 pub mod img2proj;
-pub mod img2lonlat;
+pub mod img2celestial;
 
 pub mod zenithal;
 pub mod cylindrical;
@@ -104,6 +104,21 @@ impl XYZ {
      Self { x, y, z } 
    }
   }
+
+  /// Get the x coordinate
+  pub fn x(&self) -> f64 {
+    self.x
+  }
+
+  /// Get the y coordinate
+  pub fn y(&self) -> f64 {
+    self.y
+  }
+
+  /// Get the z coordinate
+  pub fn z(&self) -> f64 {
+    self.z
+  }
   
   /// Transform into equatorial coordinates
   fn to_lonlat(&self) -> LonLat {
@@ -132,8 +147,19 @@ pub struct ImgXY {
   y: f64,  
 }
 impl ImgXY {
-  fn new(x: f64, y: f64) -> Self {
+  /// New image coordinates fo (x, y).
+  pub fn new(x: f64, y: f64) -> Self {
     Self { x, y }
+  }
+
+  /// Get the x coordinate
+  pub fn x(&self) -> f64 {
+    self.x
+  }
+
+  /// Get the y coordinate
+  pub fn y(&self) -> f64 {
+    self.y
   }
 }
 
@@ -154,11 +180,13 @@ impl ProjXY {
   pub fn new(x: f64, y: f64) -> Self {
     Self { x, y } 
   }
-  
+
+  /// Get the x coordinate
   pub fn x(&self) -> f64 {
     self.x
   }
 
+  /// Get the y coordinate
   pub fn y(&self) -> f64 {
     self.y
   }
@@ -238,10 +266,23 @@ pub struct CenteredProjection<T: CanonicalProjection> {
 
 impl<T: CanonicalProjection> CenteredProjection<T> {
   
+  /// Create a new projection, centered on the vernal point.
+  pub fn new(proj: T) -> Self {
+    Self {
+      r11: 1.0, r12: 0.0, r13: 0.0,
+      r21: 0.0, r22: 1.0, r23: 0.0,
+      r31: 0.0, r32: 0.0, r33: 1.0,
+      proj
+    }
+  }
+  
   pub fn inner_proj(&self) -> &T {
     &self.proj
   }
   
+  /// Change the projection center.
+  /// # Param
+  /// * `lonlat`: new projection center
   pub fn set_proj_center_from_lonlat(&mut self, lonlat: &LonLat) {
     let (sinl, cosl) = lonlat.lon.sin_cos();
     let (sinb, cosb) = lonlat.lat.sin_cos();
@@ -250,6 +291,9 @@ impl<T: CanonicalProjection> CenteredProjection<T> {
     self.r31 = -cosl * sinb; self.r32 = -sinl * sinb; self.r33 = cosb;
   }
 
+  /// Change the projection center.
+  /// # Param
+  /// * `xyz`: new projection center
   pub fn set_proj_center_from_xyz(&mut self, xyz: &XYZ) {
     // x = cos(l) * cos(b)
     // y = sin(l) * cos(b)

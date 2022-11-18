@@ -349,7 +349,6 @@ fn dpolynomial(x: f64, p: &[f64]) -> f64 {
 #[cfg(test)]
 mod tests {
   use crate::{LonLat, Projection};
-  use crate::math::HALF_PI;
   use super::*;
 
   #[test]

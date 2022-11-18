@@ -1,6 +1,6 @@
 [package]
 name = "mapproj"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 authors = ["F.-X. Pineau <francois-xavier.pineau@astro.unistra.fr>"]
 description = "Implementation of (a part of) map projections defined in the FITS World Coordinate System (WCS)"
