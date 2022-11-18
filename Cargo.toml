@@ -1,0 +1,17 @@
+[package]
+name = "mapproj"
+version = "0.1.0"
+edition = "2021"
+authors = ["F.-X. Pineau <francois-xavier.pineau@astro.unistra.fr>"]
+description = "Core map projections to support (a part of) the FITS World Coordinate System (WCS)"
+license = "Apache-2.0 OR MIT"
+readme = "README.md"
+categories = ["science", "algorithms"]
+keywords = ["fits", "wcs", "projection"]
+documentation = "https://docs.rs/mapproj"
+homepage = "https://github.com/cds-astro/cds-mapproj-rust/"
+repository = "https://github.com/cds-astro/cds-mapproj-rust/"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
