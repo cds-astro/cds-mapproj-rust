@@ -1,6 +1,6 @@
 //! Stereographic projection.
 
-use crate::{CanonicalProjection, CustomFloat, ProjXY, XYZ};
+use crate::{CanonicalProjection, CustomFloat, ProjBounds, ProjXY, XYZ};
 
 /// Stereographic projection.
 pub struct Stg;
@@ -22,6 +22,14 @@ impl CanonicalProjection for Stg {
   const NAME: &'static str = "Stereographic";
   const WCS_NAME: &'static str = "STG";
 
+  fn bounds(&self) -> &ProjBounds {
+    const PROJ_BOUNDS: ProjBounds = ProjBounds::new(
+      None,
+      None
+    );
+    &PROJ_BOUNDS
+  }
+  
   fn proj(&self, xyz: &XYZ) -> Option<ProjXY> {
     // All positions are valid, but diverges at lat = -PI/2
     let w = (1.0 + xyz.x).half();

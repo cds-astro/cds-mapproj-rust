@@ -1,5 +1,8 @@
 
-use std::f64::consts::PI;
+use std::{
+  f64::consts::PI,
+  ops::RangeInclusive
+};
 
 pub mod math;
 pub mod sip;
@@ -87,7 +90,7 @@ pub struct XYZ {
 impl XYZ {
   
   /// We assume the norm of the input vector is 1.
-  fn new(x: f64, y: f64, z: f64) -> Self {
+  pub fn new(x: f64, y: f64, z: f64) -> Self {
     debug_assert!((-1.0..=1.0).contains(&x), "x: {}; y: {}; z: {}", x, y, z);
     debug_assert!((-1.0..=1.0).contains(&y), "y: {}; y: {}; z: {}", x, y, z);
     debug_assert!((-1.0..=1.0).contains(&z), "x: {}; y: {}; z: {}", x, y, z);
@@ -96,7 +99,7 @@ impl XYZ {
   }
 
   /// Renormalize the input parameters to ensure the norm of the vector equals 1.
-  fn new_renorming_if_necessary(x: f64, y: f64, z: f64) -> Self {
+  pub fn new_renorming_if_necessary(x: f64, y: f64, z: f64) -> Self {
     let n = (x.pow2() + y.pow2() + z.pow2()).sqrt();
    if !(0.99999999999999..=1.0).contains(&n) {
      Self { x: x / n, y: y / n, z: z / n }
@@ -198,6 +201,15 @@ pub trait Projection {
   /// Get the projection short name.
   fn short_name(&self) -> &'static str;
 
+  /// Returns the (X, Y) bounds of the projection in the projection plane (`None` if unbounded).
+  /// # Remark
+  /// * This is not `const` because the bound may depends on projection parameters 
+  ///   (see e.g. `CYP` or `CEA`).
+  fn bounds(&self) -> &ProjBounds;
+
+  /// Returns `true` if the given point is in the valid projection area.
+  fn is_in_valid_proj_area(&self, pos: &ProjXY) -> bool;
+  
   /// Project (if possible) from the unit sphere to a projection 2D plane.
   fn proj_xyz(&self, xyz: &XYZ) -> Option<ProjXY>;
 
@@ -215,6 +227,32 @@ pub trait Projection {
   }
 }
 
+/// The X and Y ranges bounds of a projection in the Euclidean projection plane.
+#[derive(Debug, Clone)]
+pub struct ProjBounds {
+  x: Option<RangeInclusive<f64>>,
+  y: Option<RangeInclusive<f64>>,
+}
+
+impl ProjBounds {
+  
+  /// Create a new projection bounds.
+  const fn new(x: Option<RangeInclusive<f64>>, y: Option<RangeInclusive<f64>>) -> Self {
+    Self { x, y }
+  }
+  
+  /// Returns the bounds of a projection along the x-axis (`None` mean unbounded).
+  pub fn x_bounds(&self) -> &Option<RangeInclusive<f64>> {
+    &self.x
+  }
+
+  /// Returns the bounds of a projection along the y-axis (`None` mean unbounded).
+  pub fn y_bounds(&self) -> &Option<RangeInclusive<f64>> {
+    &self.y
+  }
+
+}
+
 
 // https://www.aanda.org/articles/aa/full/2002/45/aah3860/aah3860.html
 /// Projection centered around the vernal point.
@@ -224,13 +262,18 @@ pub trait CanonicalProjection {
   /// WCS projection name (3 characters)
   const WCS_NAME: &'static str;
   
-  // Set a new projection center.
-  // * the longitude is the value of the CRVAL1 WCS keyword, converted from degrees to radians
-  // * the latitude is the value of the CRVAL2 WCS keyword, converted from degrees to radians
-  // fn set_center(pos: &LonLat);
-  // fn proj(&self, pos: &LonLat) -> Result<ProjXY, ()>;
-  // fn unproj(&self, pos: &ProjXY) -> Result<LonLat, ()>;
+  /// Returns the (X, Y) bounds of the projection in the projection plane (`None` if unbounded).
+  /// # Remark
+  /// * This is not `const` because the bound may depends on projection parameters 
+  ///   (see e.g. `CYP` or `CEA`).
+  fn bounds(&self) -> &ProjBounds;
 
+  /// Returns `true` if the given point is in the valid projection area.
+  fn is_in_valid_proj_area(&self, pos: &ProjXY) -> bool {
+    // TODO: add the method in each proj to useless computations when the point is valid
+    self.unproj(pos).is_some()
+  }
+  
   /// Project (if possible) from the unit sphere to the canonical projection 2D plane.
   fn proj(&self, xyz: &XYZ) -> Option<ProjXY>;
 
@@ -244,7 +287,15 @@ impl<T: CanonicalProjection> Projection for T {
   fn short_name(&self) -> &'static str {
     Self::WCS_NAME
   }
-  
+
+  fn bounds(&self) -> &ProjBounds { 
+    CanonicalProjection::bounds(self)
+  }
+
+  fn is_in_valid_proj_area(&self, pos: &ProjXY) -> bool {
+    CanonicalProjection::is_in_valid_proj_area(self, pos)
+  }
+
   fn proj_xyz(&self, xyz: &XYZ) -> Option<ProjXY> {
     self.proj(xyz)
   }
@@ -316,6 +367,14 @@ impl<T: CanonicalProjection> Projection for CenteredProjection<T> {
 
   fn short_name(&self) -> &'static str {
     self.inner_proj().short_name()
+  }
+
+  fn bounds(&self) -> &ProjBounds {
+    self.inner_proj().bounds()
+  }
+
+  fn is_in_valid_proj_area(&self, pos: &ProjXY) -> bool {
+    self.inner_proj().is_in_valid_proj_area(pos)
   }
   
   fn proj_xyz(&self, xyz: &XYZ) -> Option<ProjXY> {

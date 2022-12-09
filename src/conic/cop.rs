@@ -2,11 +2,7 @@
 
 use std::f64::consts::PI;
 
-use crate::{
-  CustomFloat, CanonicalProjection, ProjXY, XYZ,
-  math::HALF_PI,
-  conic::Conic
-};
+use crate::{CustomFloat, CanonicalProjection, ProjXY, XYZ, math::HALF_PI, conic::Conic, ProjBounds};
 
 /// Conic perspective projection.
 pub struct Cop {
@@ -65,6 +61,14 @@ impl CanonicalProjection for Cop {
   const NAME: &'static str = "Conic perspective";
   const WCS_NAME: &'static str = "Cop";
 
+  fn bounds(&self) -> &ProjBounds {
+    const PROJ_BOUNDS: ProjBounds = ProjBounds::new(
+      None,
+      None
+    );
+    &PROJ_BOUNDS
+  }
+  
   fn proj(&self, xyz: &XYZ) -> Option<ProjXY> {
     if self.is_lat_in_domain_of_validity(xyz.z) {
       let lon = xyz.y.atan2(xyz.z);

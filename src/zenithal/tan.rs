@@ -1,6 +1,6 @@
 //! Gnomonic projection.
 
-use crate::{CanonicalProjection, CustomFloat, ProjXY, XYZ};
+use crate::{CanonicalProjection, CustomFloat, ProjBounds, ProjXY, XYZ};
 
 /// Gnomonic projection.
 pub struct Tan;
@@ -21,6 +21,14 @@ impl CanonicalProjection for Tan {
   
   const NAME: &'static str = "Gnomonic";
   const WCS_NAME: &'static str = "TAN";
+
+  fn bounds(&self) -> &ProjBounds {
+    const PROJ_BOUNDS: ProjBounds = ProjBounds::new(
+      None,
+      None
+    );
+    &PROJ_BOUNDS
+  }
   
   fn proj(&self, xyz: &XYZ) -> Option<ProjXY> {
     if xyz.x > 0.0 { // EPSILON ??

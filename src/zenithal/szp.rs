@@ -2,7 +2,7 @@
 
 use std::f64::consts::PI;
 
-use crate::{CanonicalProjection, CustomFloat, ProjXY, XYZ};
+use crate::{CanonicalProjection, CustomFloat, ProjBounds, ProjXY, XYZ};
 
 static HALF_PI: f64 = 0.5 * PI;
 static EPSILON: f64 = 1e-15;
@@ -118,6 +118,16 @@ impl CanonicalProjection for Szp {
   const NAME: &'static str = "Slant zenithal perspective";
   const WCS_NAME: &'static str = "SZP";
 
+
+  fn bounds(&self) -> &ProjBounds {
+    // TODO: to be better checked!!
+    const PROJ_BOUNDS: ProjBounds = ProjBounds::new(
+      None,
+      None
+    );
+    &PROJ_BOUNDS
+  }
+  
   fn proj(&self, xyz: &XYZ) -> Option<ProjXY> {
     if self.is_in_proj_bounds(xyz) {
       let o_m_x = 1.0 - xyz.x;

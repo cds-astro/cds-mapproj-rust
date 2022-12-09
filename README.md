@@ -106,6 +106,9 @@ To Do list
 * [X] Add zenithal projections (`AIR`, `ARC`, `AZP`, `FEYE`, `NCP`, `SIN`, `STG`, `SZP`, `TAN`, `ZEA`, `ZPN`)
 * [ ] Add polyconic and pseudoconic projections (`BON, PCO`)?
 * [ ] Add quad cube projections (`TSC`, `CSC`, `QSC`)?
+* [X] Add bounds to each projection
+* [ ] Make individual implementations of `is_in_proj_bounds` to avoid useless computations 
+      (but will introduce redundancy with unproj)
 * [ ] Check and possibly document constants to be added to match WCS projection bounds
 * [X] Support `CRPIX` + `CD` convention
 * [X] Support `CRPIX` + `PC` + `CDELT` convention

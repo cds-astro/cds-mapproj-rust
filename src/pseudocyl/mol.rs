@@ -2,7 +2,7 @@
 
 use std::f64::consts::{PI, SQRT_2};
 
-use crate::{CanonicalProjection, CustomFloat, ProjXY, XYZ};
+use crate::{CanonicalProjection, CustomFloat, ProjBounds, ProjXY, XYZ};
 
 static HALF_PI: f64 = 0.5 * PI;
 
@@ -62,6 +62,14 @@ impl CanonicalProjection for Mol {
   const NAME: &'static str = "Mollweide";
   const WCS_NAME: &'static str = "MOL";
 
+  fn bounds(&self) -> &ProjBounds {
+    const PROJ_BOUNDS: ProjBounds = ProjBounds::new(
+      Some(-2.0 * SQRT_2..=2.0 * SQRT_2),
+      Some(-SQRT_2..=SQRT_2)
+    );
+    &PROJ_BOUNDS
+  }
+  
   fn proj(&self, xyz: &XYZ) -> Option<ProjXY> {
     // find g iteratively using Newton-Raphson
     // Solve f(g) = 0, with f(g) = 2g + sin(2g) - pi*z
@@ -71,7 +79,7 @@ impl CanonicalProjection for Mol {
     //      f'(x) = 1 + cos(x)
     // => f(x) / f'(x) = (x + sin(x) - pi*z) / (1 + cos(x))
     // So we have a problem if x near from +-pi, since (cos(+-pi) = -1)
-    // Determine experimentaly possible range of z (problematic if
+    // Determine experimentally possible range of z (problematic if
     // z near from +-1
     let g = self.newton_solve(xyz.z);
     if (-HALF_PI..=HALF_PI).contains(&g) {
@@ -83,20 +91,26 @@ impl CanonicalProjection for Mol {
   }
 
   fn unproj(&self, pos: &ProjXY) -> Option<XYZ> {
-    let sqrt_2_m_y2 = 2.0 - pos.y.pow2();
-    if sqrt_2_m_y2 <= 0.0 {
-      let z = if pos.y > 0.0 { 1.0 } else { -1.0 };
-      Some(XYZ::new(0.0, 0.0, z))
+    let x2 = pos.x.pow2();
+    let y2 = pos.y.pow2();
+    if x2 / 8.0 + y2 / 2.0 > 1.0 {
+      None
     } else {
-      let sqrt_2_m_y2 = sqrt_2_m_y2.sqrt();
-      let z = ((pos.y / SQRT_2).asin().twice() + pos.y * sqrt_2_m_y2) / PI;
-      if (-1.0..=1.0).contains(&z) {
-        let (sinl, cosl) = ((pos.x * HALF_PI) / sqrt_2_m_y2).sin_cos();
-        let r = (1.0 - z.pow2()).sqrt();
-        Some(XYZ::new(r * cosl, r * sinl, z))
+      let sqrt_2_m_y2 = 2.0 - y2;
+      if sqrt_2_m_y2 <= 0.0 {
+        let z = if pos.y > 0.0 { 1.0 } else { -1.0 };
+        Some(XYZ::new(0.0, 0.0, z))
       } else {
-        // Should not happen!
-        None
+        let sqrt_2_m_y2 = sqrt_2_m_y2.sqrt();
+        let z = ((pos.y / SQRT_2).asin().twice() + pos.y * sqrt_2_m_y2) / PI;
+        if (-1.0..=1.0).contains(&z) {
+          let (sinl, cosl) = ((pos.x * HALF_PI) / sqrt_2_m_y2).sin_cos();
+          let r = (1.0 - z.pow2()).sqrt();
+          Some(XYZ::new(r * cosl, r * sinl, z))
+        } else {
+          // Should not happen!
+          None
+        }
       }
     }
   }

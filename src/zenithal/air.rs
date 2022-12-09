@@ -2,7 +2,7 @@
 
 use std::f64::consts::PI;
 
-use crate::{CanonicalProjection, CustomFloat, ProjXY, XYZ};
+use crate::{CanonicalProjection, CustomFloat, ProjBounds, ProjXY, XYZ};
 
 static HALF_PI: f64 = 0.5 * PI;
 
@@ -100,6 +100,14 @@ impl CanonicalProjection for Air {
   const NAME: &'static str = "Airy";
   const WCS_NAME: &'static str = "AIR";
 
+  fn bounds(&self) -> &ProjBounds {
+    const PROJ_BOUNDS: ProjBounds = ProjBounds::new(
+      None,
+      None
+    );
+    &PROJ_BOUNDS
+  }
+  
   fn proj(&self, xyz: &XYZ) -> Option<ProjXY> {
     let x_p_1 = xyz.x + 1.0;
     if xyz.x == 1.0 { // rho = 0

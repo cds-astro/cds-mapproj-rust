@@ -1,6 +1,7 @@
 //! Hammer-Aitoff (equal area) projection.
 
-use crate::{CanonicalProjection, CustomFloat, ProjXY, XYZ};
+use std::f64::consts::SQRT_2;
+use crate::{CanonicalProjection, CustomFloat, ProjBounds, ProjXY, XYZ};
 
 /// Hammer-Aitoff (equal area) projection.
 pub struct Ait;
@@ -21,7 +22,15 @@ impl CanonicalProjection for Ait {
 
   const NAME: &'static str = "Hammer-Aitoff (equal area)";
   const WCS_NAME: &'static str = "AIT";
-
+  
+  fn bounds(&self) -> &ProjBounds {
+    const PROJ_BOUNDS: ProjBounds = ProjBounds::new(
+      Some(-2.0 * SQRT_2..=2.0 * SQRT_2),
+      Some(-SQRT_2..=SQRT_2)
+    );
+    &PROJ_BOUNDS
+  }
+  
   fn proj(&self, xyz: &XYZ) -> Option<ProjXY> {
     let r = (xyz.x.pow2() + xyz.y.pow2()).sqrt();
     let w = (r * (r + xyz.x)).half().sqrt(); // = cos(b) cos(l/2)

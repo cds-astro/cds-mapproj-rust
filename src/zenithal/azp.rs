@@ -2,7 +2,7 @@
 
 use std::f64::consts::PI;
 
-use crate::{CanonicalProjection, CustomFloat, ProjXY, XYZ};
+use crate::{CanonicalProjection, CustomFloat, ProjBounds, ProjXY, XYZ};
 
 static HALF_PI: f64 = 0.5 * PI;
 
@@ -20,6 +20,7 @@ pub struct Azp {
   m_p_1: f64,  // mu + 1;
   sqrt_mu2_m_1: f64, // sqrt(mu^2 - 1);
   x_min: f64,        // mu == 0 ? 0 : -1 / this.mu;
+  proj_bounds: ProjBounds,
 }
 
 impl Default for Azp {
@@ -53,16 +54,33 @@ impl Azp {
   /// * if `gamma` not in `[-pi/2, pi/2]`
   pub fn from_params(mu: f64, gamma: f64) -> Self {
     assert!((-HALF_PI..=HALF_PI).contains(&gamma));
+    let (sg, cg) = gamma.sin_cos();
+    let mu_cos_gamma = mu * cg;
+    let m_p_1= mu + 1.0;
+    let xbound = m_p_1 / (mu - 1.0);
+    let ybound = m_p_1 / mu_cos_gamma;
+    let proj_bounds = if mu_cos_gamma.abs() > 1.0 {
+      ProjBounds::new(
+        Some(-xbound..=xbound),
+        Some(-ybound..=ybound)
+      )
+    } else {
+      ProjBounds::new(
+        None,
+        None
+      )
+    };
     Self {
       mu,
       gamma,
       tg: gamma.tan(),
-      cg: gamma.cos(),
-      sg: gamma.sin(),
+      cg,
+      sg,
       abs_mu: mu.abs(),
-      m_p_1: mu + 1.0,
+      m_p_1,
       sqrt_mu2_m_1: (mu.pow2() - 1.0).sqrt(),
       x_min: if mu == 0.0 { 0.0 } else { -1.0 / mu },
+      proj_bounds
     }
   }
 
@@ -84,6 +102,10 @@ impl CanonicalProjection for Azp {
   const NAME: &'static str = "Zenithal perspective";
   const WCS_NAME: &'static str = "AZP";
 
+  fn bounds(&self) -> &ProjBounds {
+    &self.proj_bounds
+  }
+  
   fn proj(&self, xyz: &XYZ) -> Option<ProjXY> {
     let wx = self.mu + xyz.x;
     let wy = self.cg * wx - xyz.z * self.sg;

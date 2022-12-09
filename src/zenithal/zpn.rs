@@ -5,7 +5,7 @@ use std::{
   f64::consts::PI,
 };
 
-use crate::{CanonicalProjection, CustomFloat, ProjXY, XYZ};
+use crate::{CanonicalProjection, CustomFloat, ProjBounds, ProjXY, XYZ};
 
 /// Zenithal polynomlial projection.
 #[derive(Debug, Clone)]
@@ -26,6 +26,8 @@ pub struct Zpn {
   eps: f64,
   /// Step for the dichotomy (when newton fails)
   step: f64,
+  // Proj bounds
+  proj_bounds: ProjBounds,
 }
 
 impl Zpn {
@@ -144,7 +146,11 @@ impl Zpn {
       euc_dist: euc_dist_min..=euc_dist_max,
       n_iter,
       eps: domain_eps,
-      step: domain_step
+      step: domain_step,
+      proj_bounds: ProjBounds::new(
+        Some(-euc_dist_max..=euc_dist_max),
+        Some(-euc_dist_max..=euc_dist_max)
+      )
     })
   }
   
@@ -267,6 +273,10 @@ impl CanonicalProjection for Zpn {
 
   const NAME: &'static str = "Zenithal polynomlial";
   const WCS_NAME: &'static str = "ZPN";
+
+  fn bounds(&self) -> &ProjBounds {
+    &self.proj_bounds
+  }
 
   fn proj(&self, xyz: &XYZ) -> Option<ProjXY> {
     let r = (xyz.y.pow2() + xyz.z.pow2()).sqrt();

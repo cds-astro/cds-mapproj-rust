@@ -1,6 +1,6 @@
 //! Lambert's zenithal (or azimuthal) equal area projection.
 
-use crate::{CanonicalProjection, CustomFloat, ProjXY, XYZ};
+use crate::{CanonicalProjection, CustomFloat, ProjBounds, ProjXY, XYZ};
 
 /// Lambert's zenithal (or azimuthal) equal area projection.
 pub struct Zea;
@@ -22,6 +22,14 @@ impl CanonicalProjection for Zea {
   const NAME: &'static str = "Lambert's zenithal (or azimuthal) equal area";
   const WCS_NAME: &'static str = "ZEA";
 
+  fn bounds(&self) -> &ProjBounds {
+    const PROJ_BOUNDS: ProjBounds = ProjBounds::new(
+      Some(-2.0..=2.0),
+      Some(-2.0..=2.0)
+    );
+    &PROJ_BOUNDS
+  }
+  
   fn proj(&self, xyz: &XYZ) -> Option<ProjXY> {
     // Whole sphere, r <= 2 (equal area)
     let w = (0.5 + 0.5 * xyz.x).sqrt(); // <=> sqrt[(1 + x) / 2]

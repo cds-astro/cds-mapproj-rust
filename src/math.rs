@@ -2,7 +2,7 @@
 
 use std::f64::consts::PI;
 
-pub static HALF_PI: f64 = 0.5 * PI;
+pub const HALF_PI: f64 = 0.5 * PI;
 
 pub trait CustomFloat {
   /// `2 * x`

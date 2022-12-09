@@ -1,8 +1,8 @@
 //! Fisheye projection.
 
-use crate::{CanonicalProjection, CustomFloat, ProjXY, XYZ};
+use crate::{CanonicalProjection, CustomFloat, ProjBounds, ProjXY, XYZ};
 
-static D_MAX: f64 = 1.6580627893946132; // 95.0_f64.to_radians();
+const D_MAX: f64 = 1.6580627893946132; // 95.0_f64.to_radians();
 
 /// Fisheye projection.
 pub struct Feye;
@@ -24,6 +24,14 @@ impl CanonicalProjection for Feye {
   const NAME: &'static str = "Fisheye";
   const WCS_NAME: &'static str = "FEYE";
 
+  fn bounds(&self) -> &ProjBounds {
+    const PROJ_BOUNDS: ProjBounds = ProjBounds::new(
+      Some(-D_MAX..=D_MAX),
+      Some(-D_MAX..=D_MAX)
+    );
+    &PROJ_BOUNDS
+  }
+  
   fn proj(&self, xyz: &XYZ) -> Option<ProjXY> {
     // Distance in the Euclidean plane (yz).
     // Angular distance is acos(x), but for small separation, asin(r) is more accurate.

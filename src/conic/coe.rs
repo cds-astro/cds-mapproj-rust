@@ -2,10 +2,7 @@
 
 use std::f64::consts::PI;
 
-use crate::{
-  CustomFloat, CanonicalProjection, ProjXY, XYZ,
-  conic::Conic
-};
+use crate::{CustomFloat, CanonicalProjection, ProjXY, XYZ, conic::Conic, ProjBounds};
 
 /// Conic Equal Area projection.
 pub struct Coe {
@@ -17,6 +14,7 @@ pub struct Coe {
   y0: f64,
   r2_min: f64,
   r2_max: f64,
+  proj_bounds: ProjBounds,
 }
 
 impl Default for Coe {
@@ -53,10 +51,15 @@ impl Coe {
       )
     };
     debug_assert!(r2_min <= r2_max);
+    let r_max = r2_max.sqrt();
     Self {
       conic,
       one_plus_sint1_sint2, gamma, c, c2, y0,
       r2_min, r2_max,
+      proj_bounds: ProjBounds::new(
+        Some(-r_max..=r_max),
+        Some(y0 - r_max..=y0 + r_max)
+      )
     }
   }
 }
@@ -66,6 +69,10 @@ impl CanonicalProjection for Coe {
 
   const NAME: &'static str = "Conic Equal Area";
   const WCS_NAME: &'static str = "Coe";
+
+  fn bounds(&self) -> &ProjBounds {
+    &self.proj_bounds
+  }
 
   fn proj(&self, xyz: &XYZ) -> Option<ProjXY> {
     let r = self.one_plus_sint1_sint2 - self.gamma * xyz.z;

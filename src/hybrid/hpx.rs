@@ -2,7 +2,8 @@
 
 use std::f64::consts::PI;
 
-use crate::{CanonicalProjection, CustomFloat, ProjXY, XYZ};
+use crate::{CanonicalProjection, CustomFloat, ProjBounds, ProjXY, XYZ};
+use crate::math::HALF_PI;
 
 /// Mask to keep only the f64 sign
 pub const F64_SIGN_BIT_MASK: u64 = 0x8000000000000000;
@@ -44,6 +45,14 @@ impl CanonicalProjection for Hpx {
   
   const NAME: &'static str = "HEALPix";
   const WCS_NAME: &'static str = "HPX";
+  
+  fn bounds(&self) -> &ProjBounds {
+    const PROJ_BOUNDS: ProjBounds = ProjBounds::new(
+      Some(-PI..=PI),
+      Some(-HALF_PI..=HALF_PI)
+    );
+    &PROJ_BOUNDS
+  }
 
   /// Returns the projection, in the 2D Euclidean plane, of the given position on the unit sphere.
   /// # Output
@@ -80,29 +89,38 @@ impl CanonicalProjection for Hpx {
   /// * `Y`: coordinate along the Y-axis in the projection plane, in `[-PI/2, PI/2]`
   fn unproj(&self, pos: &ProjXY) -> Option<XYZ> {
     let mut z = pos.y * FOUR_OVER_PI;
-    if !(-2f64..=2f64).contains(&z) {
+    let x = pos.x * FOUR_OVER_PI;
+    if !(-2f64..=2f64).contains(&z) || !(-4f64..4f64).contains(&x) {
       None
     } else if z > 1.0 {
       // North polar cap
-      let x = abs_sign_decompose(pos.x * FOUR_OVER_PI);
+      let x = abs_sign_decompose(x);
       let OffsetAndPM1 { offset, mut pm1 } = pm1_offset_decompose(x.abs);
       deproj_collignon(&mut pm1, &mut z);
-      apply_offset_and_signs(&mut pm1, offset, x.sign);
-      pm1 *= PI_OVER_FOUR;
-      let (sinb, cosb) = z.sin_cos();
-      let (sinl, cosl) = pm1.sin_cos();
-      Some(XYZ::new(cosl * cosb, sinl * cosb, sinb))
+      if (-1.0..=1.0).contains(&pm1) {
+        apply_offset_and_signs(&mut pm1, offset, x.sign);
+        pm1 *= PI_OVER_FOUR;
+        let (sinb, cosb) = z.sin_cos();
+        let (sinl, cosl) = pm1.sin_cos();
+        Some(XYZ::new(cosl * cosb, sinl * cosb, sinb))
+      } else {
+        None
+      }
     } else if z < -1.0 {
       // South polar cap
-      let x = abs_sign_decompose(pos.x * FOUR_OVER_PI);
+      let x = abs_sign_decompose(x);
       let OffsetAndPM1 { offset, mut pm1 } = pm1_offset_decompose(x.abs);
       z = -z;
       deproj_collignon(&mut pm1, &mut z);
-      apply_offset_and_signs(&mut pm1, offset, x.sign);
-      pm1 *= PI_OVER_FOUR;
-      let (sinb, cosb) = (-z).sin_cos();
-      let (sinl, cosl) = pm1.sin_cos();
-      Some(XYZ::new(cosl * cosb, sinl * cosb, sinb))
+      if (-1.0..=1.0).contains(&pm1) {
+        apply_offset_and_signs(&mut pm1, offset, x.sign);
+        pm1 *= PI_OVER_FOUR;
+        let (sinb, cosb) = (-z).sin_cos();
+        let (sinl, cosl) = pm1.sin_cos();
+        Some(XYZ::new(cosl * cosb, sinl * cosb, sinb))
+      } else {
+        None
+      }
     }  else {
       // Equatorial region
       let z = z * TRANSITION_Z; // z = sin(lat) = sinb
@@ -122,7 +140,7 @@ fn xpm1_and_offset(x: f64, y: f64) -> (f64, i8) {
   // x>0, y<0 => [pi   , 3pi/2[ => offset = -1
   let offset = ((-y_neg) << 2) + 1 + ((x_neg ^ y_neg) << 1);
   let lon = y.abs().atan2(x.abs()); debug_assert!((0.0..=PI / 2.0).contains(&lon));
-  let x02 = lon * 4.0 / PI;               debug_assert!((0.0..=2.0).contains(&x02));
+  let x02 = lon * FOUR_OVER_PI;           debug_assert!((0.0..=2.0).contains(&x02));
   if x_neg != y_neg { // Could be replaced by a sign copy from (x_neg ^ y_neg) << 32
     (1.0 - x02, offset)
   } else {

@@ -1,6 +1,6 @@
 //! Orthographic projections.
 
-use crate::{CanonicalProjection, CustomFloat, ProjXY, XYZ};
+use crate::{CanonicalProjection, CustomFloat, ProjBounds, ProjXY, XYZ};
 
 /// Orthographic projection.
 pub struct Sin;
@@ -21,6 +21,14 @@ impl CanonicalProjection for Sin {
   
   const NAME: &'static str = "Orthographic";
   const WCS_NAME: &'static str = "SIN";
+
+  fn bounds(&self) -> &ProjBounds {
+    const PROJ_BOUNDS: ProjBounds = ProjBounds::new(
+      Some(-1.0..=1.0),
+      Some(-1.0..=1.0)
+    );
+    &PROJ_BOUNDS
+  }
   
   fn proj(&self, xyz: &XYZ) -> Option<ProjXY> {
     if xyz.x >= 0.0 {
@@ -49,6 +57,7 @@ pub struct SinSlant {
   yp: f64,
   zp: f64,
   tg2: f64,
+  proj_bounds: ProjBounds,
 }
 
 impl SinSlant {
@@ -67,6 +76,10 @@ impl SinSlant {
       yp: -xi / tmp,
       zp: -eta / tmp,
       tg2,
+      proj_bounds: ProjBounds::new(
+        Some(-1.0..=1.0 + xi * 2.0),
+        Some(-1.0..=1.0 + eta * 2.0)
+      )
     }
   }
 }
@@ -76,6 +89,10 @@ impl CanonicalProjection for SinSlant {
   const NAME: &'static str = "Slant orthographic";
   const WCS_NAME: &'static str = "SIN";
 
+  fn bounds(&self) -> &ProjBounds {
+    &self.proj_bounds
+  }
+  
   fn proj(&self, xyz: &XYZ) -> Option<ProjXY> {
     let s = xyz.x * self.xp + xyz.y * self.yp + xyz.z * self.zp;
     if s <= 0.0 {

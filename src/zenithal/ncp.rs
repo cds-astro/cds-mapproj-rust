@@ -1,5 +1,5 @@
 //! North Celestial Pole orthographic porjection.
-use crate::{CanonicalProjection, CustomFloat, ProjXY, XYZ};
+use crate::{CanonicalProjection, CustomFloat, ProjBounds, ProjXY, XYZ};
 
 /// North Celestial Pole orthographic porjection.
 pub struct Ncp;
@@ -21,6 +21,14 @@ impl CanonicalProjection for Ncp {
   const NAME: &'static str = "North Celestial Pole orthographic";
   const WCS_NAME: &'static str = "NCP";
 
+  fn bounds(&self) -> &ProjBounds {
+    const PROJ_BOUNDS: ProjBounds = ProjBounds::new(
+      Some(-1.0..=1.0),
+      Some(-1.0..=1.0)
+    );
+    &PROJ_BOUNDS
+  }
+  
   fn proj(&self, xyz: &XYZ) -> Option<ProjXY> {
     if xyz.x >= 0.0 { // Front hemisphere
       Some(ProjXY::new(xyz.y, xyz.z))

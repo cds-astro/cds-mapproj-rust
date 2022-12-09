@@ -1,7 +1,7 @@
 //! Zenithal (or azimuthal) equidistant projection.
 
 use std::f64::consts::PI;
-use crate::{CanonicalProjection, CustomFloat, ProjXY, XYZ};
+use crate::{CanonicalProjection, CustomFloat, ProjBounds, ProjXY, XYZ};
 
 /// Zenithal (or azimuthal) equidistant projection.
 pub struct Arc;
@@ -23,6 +23,14 @@ impl CanonicalProjection for Arc {
   const NAME: &'static str = "Zenithal (or azimuthal) equidistant";
   const WCS_NAME: &'static str = "ARC";
 
+  fn bounds(&self) -> &ProjBounds {
+    const PROJ_BOUNDS: ProjBounds = ProjBounds::new(
+      Some(-PI..=PI),
+      Some(-PI..=PI)
+    );
+    &PROJ_BOUNDS
+  }
+  
   fn proj(&self, xyz: &XYZ) -> Option<ProjXY> {
     if xyz.x > -1.0 {
       // Distance in the Euclidean plane (yz)

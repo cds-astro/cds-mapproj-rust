@@ -1,5 +1,7 @@
 //! Plate Carre projection.
-use crate::{CanonicalProjection, CustomFloat, ProjXY, XYZ};
+use std::f64::consts::PI;
+use crate::{CanonicalProjection, CustomFloat, ProjBounds, ProjXY, XYZ};
+use crate::math::HALF_PI;
 
 /// Plate Carre projection.
 pub struct Car;
@@ -21,6 +23,14 @@ impl CanonicalProjection for Car {
   const NAME: &'static str = "Plate Carre";
   const WCS_NAME: &'static str = "CAR";
 
+  fn bounds(&self) -> &ProjBounds {
+    const PROJ_BOUNDS: ProjBounds = ProjBounds::new(
+      Some(-PI..=PI),
+      Some(-HALF_PI..=HALF_PI)
+    );
+    &PROJ_BOUNDS
+  }
+
   fn proj(&self, xyz: &XYZ) -> Option<ProjXY> {
     // We do not use lat = asin(z) for precision purpose
     let r2 = xyz.x.pow2() + xyz.y.pow2();
@@ -29,8 +39,12 @@ impl CanonicalProjection for Car {
   }
 
   fn unproj(&self, pos: &ProjXY) -> Option<XYZ> {
-    let (slon, clon) = pos.x.sin_cos();
-    let (slat, clat) = pos.y.sin_cos();
-    Some(XYZ::new(clat * clon, clat * slon, slat))
+    if (-PI..=PI).contains(&pos.x) && (-HALF_PI..=HALF_PI).contains(&pos.y) {
+      let (slon, clon) = pos.x.sin_cos();
+      let (slat, clat) = pos.y.sin_cos();
+      Some(XYZ::new(clat * clon, clat * slon, slat))
+    } else {
+      None
+    }
   }
 }

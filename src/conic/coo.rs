@@ -2,11 +2,7 @@
 
 use std::f64::consts::PI;
 
-use crate::{
-  CustomFloat, CanonicalProjection, ProjXY, XYZ,
-  math::HALF_PI,
-  conic::Conic
-};
+use crate::{CustomFloat, CanonicalProjection, ProjXY, XYZ, math::HALF_PI, conic::Conic, ProjBounds};
 
 /// Conic Orthomorphic projection.
 pub struct Coo {
@@ -59,6 +55,14 @@ impl CanonicalProjection for Coo {
   const NAME: &'static str = "Conic Orthomorphic";
   const WCS_NAME: &'static str = "Coo";
 
+  fn bounds(&self) -> &ProjBounds {
+    const PROJ_BOUNDS: ProjBounds = ProjBounds::new(
+      None,
+      None
+    );
+    &PROJ_BOUNDS
+  }
+  
   fn proj(&self, xyz: &XYZ) -> Option<ProjXY> {
     let lon = xyz.y.atan2(xyz.x);
     // Use something else than asin?

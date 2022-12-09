@@ -2,11 +2,7 @@
  
 use std::f64::consts::PI;
 
-use crate::{
-  CustomFloat, CanonicalProjection, ProjXY, XYZ,
-  math::HALF_PI,
-  conic::Conic
-};
+use crate::{CustomFloat, CanonicalProjection, ProjXY, XYZ, math::HALF_PI, conic::Conic, ProjBounds};
 
 /// Conic Equidistant projection.
 #[derive(Debug, Clone)]
@@ -17,6 +13,7 @@ pub struct Cod {
   r2_min: f64,
   r2_max: f64,
   ta_plus_y0: f64,
+  proj_bounds: ProjBounds,
 }
 
 impl Default for Cod {
@@ -55,7 +52,11 @@ impl Cod {
       y0,
       r2_min: r_min.pow2(),
       r2_max: r_max.pow2(),
-      ta_plus_y0
+      ta_plus_y0,
+      proj_bounds: ProjBounds::new(
+        Some(-r_max..=r_max),
+        Some(y0 - r_max..=y0 + r_max)
+      )
     }
   }
 }
@@ -65,7 +66,11 @@ impl CanonicalProjection for Cod {
 
   const NAME: &'static str = "Conic Equidistant";
   const WCS_NAME: &'static str = "Cod";
-  
+
+  fn bounds(&self) -> &ProjBounds {
+    &self.proj_bounds
+  }
+
   fn proj(&self, xyz: &XYZ) -> Option<ProjXY> {
     let lon = xyz.y.atan2(xyz.x);
     // more computations but ore accurate than r = self.ta_plus_y0 - z.asin()
