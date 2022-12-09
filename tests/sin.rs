@@ -1,7 +1,7 @@
 use mapproj::{
   CenteredProjection, ImgXY, LonLat,
   img2celestial::Img2Celestial,
-  img2proj::ImgXY2ProjXY,
+  img2proj::{ImgXY2ProjXY, WcsImgXY2ProjXY},
   zenithal::sin::Sin,
 };
 
@@ -36,7 +36,7 @@ fn test_sin() {
   let mut proj = CenteredProjection::new(Sin::default());
   let proj_center = LonLat::new(crval1.to_radians(), crval2.to_radians());
   proj.set_proj_center_from_lonlat(&proj_center);
-  let img2proj = ImgXY2ProjXY::from_cd(crpix1, crpix2, cd11, 0.0, 0.0, cd22);
+  let img2proj = WcsImgXY2ProjXY::from_cd(crpix1, crpix2, cd11, 0.0, 0.0, cd22);
   let img2lonlat = Img2Celestial::new(img2proj, proj);
   // We could have set the projection center here instead of previously:
   //   img2lonlat.set_proj_center_from_lonlat(proj_center);

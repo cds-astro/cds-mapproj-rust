@@ -5,15 +5,15 @@ use crate::img2proj::{ImgXY2ProjXY, ProjXY2ImgXY};
 use crate::{CanonicalProjection, CenteredProjection, ImgXY, LonLat, Projection, XYZ};
 
 /// Structure to convert back on forth from Image coordinates to Celestial coordinates.
-pub struct Img2Celestial<P: CanonicalProjection> {
-  img2proj: ImgXY2ProjXY,
-  proj2img: ProjXY2ImgXY,
+pub struct Img2Celestial<P: CanonicalProjection, W: ImgXY2ProjXY> {
+  img2proj: W,
+  proj2img: W::T,
   proj: CenteredProjection<P>,
 }
 
-impl<P: CanonicalProjection> Img2Celestial<P> {
+impl<P: CanonicalProjection, W: ImgXY2ProjXY> Img2Celestial<P, W> {
   
-  pub fn new(img2proj: ImgXY2ProjXY, proj: CenteredProjection<P>) -> Self {
+  pub fn new(img2proj: W, proj: CenteredProjection<P>) -> Self {
     let proj2img = img2proj.inverse();
     Self { img2proj, proj2img, proj }
   }

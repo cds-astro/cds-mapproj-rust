@@ -8,6 +8,9 @@ Released 2022-xx-xx
 
 * Add `bounds` and  `is_in_valid_proj_area` methods projections
 * In `unproj` check if the (X, Y) cooridnates are in the projection plane valid area
+* `ProjXY2ImgXY` now an trait with implementations.
+* Support SIP in a different struct implementing `ProjXY2ImgXY`
+* Add `BasicImgXY2ProjXY`
 
 --------------------------------------------------------------------------------
 
