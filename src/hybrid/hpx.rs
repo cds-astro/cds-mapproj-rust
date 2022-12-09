@@ -96,8 +96,8 @@ impl CanonicalProjection for Hpx {
       // North polar cap
       let x = abs_sign_decompose(x);
       let OffsetAndPM1 { offset, mut pm1 } = pm1_offset_decompose(x.abs);
-      deproj_collignon(&mut pm1, &mut z);
-      if (-1.0..=1.0).contains(&pm1) {
+      if (2.0 - z) >= pm1.abs() {
+        deproj_collignon(&mut pm1, &mut z);
         apply_offset_and_signs(&mut pm1, offset, x.sign);
         pm1 *= PI_OVER_FOUR;
         let (sinb, cosb) = z.sin_cos();
@@ -111,8 +111,8 @@ impl CanonicalProjection for Hpx {
       let x = abs_sign_decompose(x);
       let OffsetAndPM1 { offset, mut pm1 } = pm1_offset_decompose(x.abs);
       z = -z;
-      deproj_collignon(&mut pm1, &mut z);
-      if (-1.0..=1.0).contains(&pm1) {
+      if (2.0 - z) >= pm1.abs() {
+        deproj_collignon(&mut pm1, &mut z);
         apply_offset_and_signs(&mut pm1, offset, x.sign);
         pm1 *= PI_OVER_FOUR;
         let (sinb, cosb) = (-z).sin_cos();
