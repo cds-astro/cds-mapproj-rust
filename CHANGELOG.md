@@ -2,7 +2,7 @@
 
 ## 0.3.0
 
-Released 2022-xx-xx
+Released 2022-12-13
 
 ### Fix
 
