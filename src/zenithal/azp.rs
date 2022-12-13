@@ -57,7 +57,7 @@ impl Azp {
     let (sg, cg) = gamma.sin_cos();
     let mu_cos_gamma = mu * cg;
     let m_p_1= mu + 1.0;
-    let xbound = m_p_1 / (mu - 1.0);
+    let xbound = m_p_1 / mu;
     let ybound = m_p_1 / mu_cos_gamma;
     let proj_bounds = if mu_cos_gamma.abs() > 1.0 {
       ProjBounds::new(

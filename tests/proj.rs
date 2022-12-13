@@ -147,9 +147,9 @@ fn test_canonicals_back_and_forth() {
   let mas_in_rad = (1.0 / 3600_000.0_f64).to_radians();
   // Conic
   test_canonical_back_and_forth(Cod::new(), mas_in_rad / 1000.0);        //  1 uas
-  test_canonical_back_and_forth(Coe::new(), mas_in_rad / 1000.0);        //  1 uas
-  test_canonical_back_and_forth(Coo::new(), mas_in_rad / 1000.0);        //  1 uas
-  test_canonical_back_and_forth(Cop::new(), mas_in_rad / 1000.0);        //  1 uas
+  test_canonical_back_and_forth(Coe::from_params((-20.0 - 70.0).half().to_radians(), (-20_f64 + 70.0).abs().half().to_radians()), 10.0 * mas_in_rad);        //  10 mas
+  test_canonical_back_and_forth(Coo::from_params((20.0 + 70.0).half().to_radians(), (20_f64 - 70.0).abs().half().to_radians()), mas_in_rad);        //  1 mas
+  test_canonical_back_and_forth(Cop::from_params((20.0 + 70.0).half().to_radians(), (20_f64 - 70.0).abs().half().to_radians()), mas_in_rad / 1000.0);        //  1 uas
   // Cylindrical
   test_canonical_back_and_forth(Car::new(), mas_in_rad / 1000.0);        //  1 uas
   test_canonical_back_and_forth(Cea::new(), 30.0 * mas_in_rad / 1000.0); // 30 uas => due to z = sin(lat)

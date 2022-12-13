@@ -4,13 +4,19 @@
 
 Released 2022-xx-xx
 
+### Fix
+
+* Conic COE proj (x instead of z in projection) 
+* Conic unproj arctan (`r` parameter was important because of possible negative sign)
+
 ### Changed
 
 * Add `bounds` and  `is_in_valid_proj_area` methods projections
 * In `unproj` check if the (X, Y) cooridnates are in the projection plane valid area
 * `ProjXY2ImgXY` now an trait with implementations.
 * Support SIP in a different struct implementing `ProjXY2ImgXY`
-* Add `BasicImgXY2ProjXY`
+* Add `BasicImgXY2ProjXY` and `ReversedEastPngImgXY2ProjXY`
+* Conic proj default parameters
 
 --------------------------------------------------------------------------------
 

@@ -396,5 +396,4 @@ impl<T: CanonicalProjection> Projection for CenteredProjection<T> {
         )
       )
   }
-  
 }

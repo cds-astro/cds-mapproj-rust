@@ -3,6 +3,7 @@
 use std::f64::consts::PI;
 
 use crate::{CustomFloat, CanonicalProjection, ProjXY, XYZ, conic::Conic, ProjBounds};
+use crate::math::HALF_PI;
 
 /// Conic Equal Area projection.
 pub struct Coe {
@@ -25,8 +26,9 @@ impl Default for Coe {
 
 impl Coe {
 
+  // default theta1 = theta2 = 45 deg
   pub fn new() -> Self {
-    Self::from_params(0.0, 0.0)
+    Self::from_params(HALF_PI.half(), 0.0)
   }
 
   pub fn from_params(theta_a: f64, nu: f64) -> Self {
@@ -36,12 +38,12 @@ impl Coe {
     let sin_ta = conic.ta.sin();
     let one_plus_sint1_sint2 = 1.0 + sin_t1 * sin_t2;
     let gamma = sin_t1 + sin_t2;
-    let c = 0.5 * gamma;
+    let c = gamma.half();
     let c2 = c.pow2();
     let y0 = (one_plus_sint1_sint2 - gamma * sin_ta).sqrt() /  c;
     let (r2_min, r2_max) = if gamma >= 0.0 {
       (
-        (one_plus_sint1_sint2 - gamma) /  c2,
+        (one_plus_sint1_sint2 - gamma) / c2,
         (one_plus_sint1_sint2 + gamma) / c2
       )
     } else {
@@ -52,13 +54,18 @@ impl Coe {
     };
     debug_assert!(r2_min <= r2_max);
     let r_max = r2_max.sqrt();
+    let yrange = if conic.negative_ta {
+      Some(y0 - r_max * (PI * c).cos().abs()..=y0 + r_max)
+    } else {
+      Some(y0 - r_max..=y0 + r_max * (PI * c).cos().abs())
+    };
     Self {
       conic,
       one_plus_sint1_sint2, gamma, c, c2, y0,
       r2_min, r2_max,
       proj_bounds: ProjBounds::new(
         Some(-r_max..=r_max),
-        Some(y0 - r_max..=y0 + r_max)
+        yrange
       )
     }
   }
@@ -91,14 +98,18 @@ impl CanonicalProjection for Coe {
     let x2d = pos.x;
     let y2d = self.y0 - pos.y;
     let r2 = x2d.pow2() + y2d.pow2();
-    if (self.r2_min - EPS..self.r2_max + EPS).contains(&r2) {
-      let r = if self.conic.negative_ta { -r2.sqrt() } else { r2.sqrt() };
-      let lon =  y2d.atan2(x2d) / self.c; // no need to divide both y2d and x2d by r
-      if (-PI - EPS..PI + EPS).contains(&lon) {
-        let z = (self.one_plus_sint1_sint2 - self.c2 * r) / self.gamma;
-        let r = (1.0 - z.pow2()).sqrt();
-        let (sinl, cosl) = lon.sin_cos();
-        Some(XYZ::new(r * cosl, r * sinl, z))
+    if (self.r2_min..=self.r2_max).contains(&r2) {
+      let r = if self.conic.negative_ta { -(r2.sqrt()) } else { r2.sqrt() };
+      let lon =  (x2d / r).atan2(y2d / r) / self.c; // / r important because of its sign
+      if (-PI..PI).contains(&lon) {
+        let z = (self.one_plus_sint1_sint2 - self.c2 * r2) / self.gamma;
+        if (-1.0..1.0).contains(&z) {
+          let r = (1.0 - z.pow2()).sqrt();
+          let (sinl, cosl) = lon.sin_cos();
+          Some(XYZ::new(r * cosl, r * sinl, z))
+        } else {
+          None
+        }
       } else {
         None
       }

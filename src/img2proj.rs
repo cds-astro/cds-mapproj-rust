@@ -61,7 +61,7 @@ impl BasicImgXY2ProjXY {
   /// * `proj_bounds`: `(bounds_x, bounds_y)` boundaries of the projection domain
   pub fn from(
     img_size: (u16, u16),
-    proj_bounds: (RangeInclusive<f64>, RangeInclusive<f64>)
+    proj_bounds: (&RangeInclusive<f64>, &RangeInclusive<f64>)
   ) -> Self {
     // x-axis
     let img_size_x = img_size.0 as f64;
@@ -115,14 +115,20 @@ impl ProjXY2ImgXY for BasicImgXY2ProjXY {
 
 /// Specific implementation for PNG (top left origin) with East towards the left.
 #[derive(Clone)]
-pub struct ReversedEastPngImgXY2ProjXY(BasicImgXY2ProjXY);
+pub struct ReversedEastPngImgXY2ProjXY{
+  y_img_max: f64,
+  b: BasicImgXY2ProjXY,
+}
 
 impl ReversedEastPngImgXY2ProjXY {
   pub fn from(
     img_size: (u16, u16),
-    proj_bounds: (RangeInclusive<f64>, RangeInclusive<f64>)
+    proj_bounds: (&RangeInclusive<f64>, &RangeInclusive<f64>)
   ) -> Self {
-    Self(BasicImgXY2ProjXY::from(img_size, proj_bounds))
+    Self{
+      y_img_max: (img_size.1 - 1) as f64,
+      b: BasicImgXY2ProjXY::from(img_size, proj_bounds) 
+    }
   }
 }
 
@@ -131,9 +137,9 @@ impl ImgXY2ProjXY for ReversedEastPngImgXY2ProjXY {
   type T = Self;
 
   fn img2proj(&self, xy: &ImgXY) -> ProjXY {
-    let proj_x = self.0.center_px + (xy.x as f64 - self.0.center_x) * self.0.scale_x;
-    let proj_y = self.0.center_py + (xy.y as f64 - self.0.center_y) * self.0.scale_y;
-    ProjXY::new(-proj_x, -proj_y)
+    let proj_x = self.b.center_px + (xy.x - self.b.center_x) * self.b.scale_x;
+    let proj_y = self.b.center_py + ((self.y_img_max - xy.y) - self.b.center_y) * self.b.scale_y;
+    ProjXY::new(-proj_x, proj_y)
   }
 
   fn inverse(&self) ->  Self::T {
@@ -144,9 +150,9 @@ impl ImgXY2ProjXY for ReversedEastPngImgXY2ProjXY {
 impl ProjXY2ImgXY for ReversedEastPngImgXY2ProjXY {
 
   fn proj2img(&self, xy: &ProjXY) -> Option<ImgXY> {
-    let x = self.0.center_x + (-xy.x - self.0.center_px) / self.0.scale_x;
-    let y = self.0.center_y + (-xy.y - self.0.center_py) / self.0.scale_y;
-    Some(ImgXY::new(x, y))
+    let x = self.b.center_x + (-xy.x - self.b.center_px) / self.b.scale_x;
+    let y = self.b.center_y + (xy.y - self.b.center_py) / self.b.scale_y;
+    Some(ImgXY::new(x, self.y_img_max - y))
   }
 }
 

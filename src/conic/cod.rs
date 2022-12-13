@@ -46,6 +46,11 @@ impl Cod {
     } else {
       (ta_plus_y0 + HALF_PI, ta_plus_y0 - HALF_PI)
     };
+    let yrange = if conic.negative_ta {
+      Some(y0 - r_max * (PI * c).cos().abs()..=y0 + r_max)
+    } else {
+      Some(y0 - r_max..=y0 + r_max * (PI * c).cos().abs())
+    };
     Self {
       conic,
       c,
@@ -55,7 +60,7 @@ impl Cod {
       ta_plus_y0,
       proj_bounds: ProjBounds::new(
         Some(-r_max..=r_max),
-        Some(y0 - r_max..=y0 + r_max)
+        yrange
       )
     }
   }
@@ -82,13 +87,14 @@ impl CanonicalProjection for Cod {
   }
 
   fn unproj(&self, pos: &ProjXY) -> Option<XYZ> {
+    const EPS: f64 = 1.0e-14;
     let x2d = pos.x;
     let y2d = self.y0 - pos.y;
     let r2 = x2d.pow2() + y2d.pow2();
     if (self.r2_min..=self.r2_max).contains(&r2) {
-      let r = if self.conic.negative_ta { -r2.sqrt() } else { r2.sqrt() };
-      let lon =  x2d.atan2(y2d) / self.c; // no need to divide both y2d and x2d by r
-      if (-PI..PI).contains(&lon) {
+      let r = if self.conic.negative_ta { -(r2.sqrt()) } else { r2.sqrt() };
+      let lon =  (x2d / r).atan2(y2d / r) / self.c; // / r important because of its sign
+      if (-PI - EPS..PI + EPS).contains(&lon) {
         let (sinb, cosb) = (self.ta_plus_y0 - r).sin_cos();
         let (sinl, cosl) = lon.sin_cos();
         Some(XYZ::new(cosb * cosl, cosb * sinl, sinb))
