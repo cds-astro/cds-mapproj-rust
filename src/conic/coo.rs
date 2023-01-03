@@ -53,7 +53,7 @@ impl Coo {
 impl CanonicalProjection for Coo {
 
   const NAME: &'static str = "Conic Orthomorphic";
-  const WCS_NAME: &'static str = "Coo";
+  const WCS_NAME: &'static str = "COO";
 
   fn bounds(&self) -> &ProjBounds {
     const PROJ_BOUNDS: ProjBounds = ProjBounds::new(

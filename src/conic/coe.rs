@@ -75,7 +75,7 @@ impl Coe {
 impl CanonicalProjection for Coe {
 
   const NAME: &'static str = "Conic Equal Area";
-  const WCS_NAME: &'static str = "Coe";
+  const WCS_NAME: &'static str = "COE";
 
   fn bounds(&self) -> &ProjBounds {
     &self.proj_bounds
@@ -101,7 +101,7 @@ impl CanonicalProjection for Coe {
     if (self.r2_min..=self.r2_max).contains(&r2) {
       let r = if self.conic.negative_ta { -(r2.sqrt()) } else { r2.sqrt() };
       let lon =  (x2d / r).atan2(y2d / r) / self.c; // / r important because of its sign
-      if (-PI..PI).contains(&lon) {
+      if (-PI - EPS..PI + EPS).contains(&lon) {
         let z = (self.one_plus_sint1_sint2 - self.c2 * r2) / self.gamma;
         if (-1.0..1.0).contains(&z) {
           let r = (1.0 - z.pow2()).sqrt();

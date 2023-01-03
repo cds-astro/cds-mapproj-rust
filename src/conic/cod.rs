@@ -70,7 +70,7 @@ impl Cod {
 impl CanonicalProjection for Cod {
 
   const NAME: &'static str = "Conic Equidistant";
-  const WCS_NAME: &'static str = "Cod";
+  const WCS_NAME: &'static str = "COD";
 
   fn bounds(&self) -> &ProjBounds {
     &self.proj_bounds

@@ -60,7 +60,7 @@ impl Cop {
 impl CanonicalProjection for Cop {
 
   const NAME: &'static str = "Conic perspective";
-  const WCS_NAME: &'static str = "Cop";
+  const WCS_NAME: &'static str = "COP";
 
   fn bounds(&self) -> &ProjBounds {
     const PROJ_BOUNDS: ProjBounds = ProjBounds::new(
