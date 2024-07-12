@@ -360,7 +360,21 @@ impl<T: CanonicalProjection> CenteredProjection<T> {
     self.r21 = -sinl;        self.r22 =  cosl;        self.r23 = 0.0;
     self.r31 = -cosl * sinb; self.r32 = -sinl * sinb; self.r33 = cosb;
   }
-  
+
+  /// This describes the computation of a rotation matrix from 3 euler angles
+  ///
+  /// First rotation is done by a rotation of -lon around z axis (longitude increasing towards the east by default)
+  /// Second rotation is done by a rotation of +lat around the y' axis
+  /// Third rotation is done by a rotation of +gamma around the x'' axis
+  pub fn set_proj_center_from_lonlat_and_positional_angle(&mut self, lonlat: &LonLat, gamma: f64) {
+    let (sinl, cosl) = lonlat.lon.sin_cos();
+    let (sinb, cosb) = lonlat.lat.sin_cos();
+    let (sing, cosg) = gamma.sin_cos();
+
+    self.r11 = cosl * cosb;                       self.r12 = sinl * cosb;                      self.r13 = sinb;
+    self.r21 = -sinl * cosg + cosl * sinb * sing; self.r22 = cosl * cosg + sinl * sinb * sing; self.r23 = -cosb * sing;
+    self.r31 = -sinl * sing - cosl * sinb * cosg; self.r32 = cosl * sing - sinl * sinb * cosg; self.r33 = cosb * cosg;
+  }
 }
 
 impl<T: CanonicalProjection> Projection for CenteredProjection<T> {
