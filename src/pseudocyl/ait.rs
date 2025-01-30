@@ -4,6 +4,41 @@ use std::f64::consts::SQRT_2;
 use crate::{CanonicalProjection, CustomFloat, ProjBounds, ProjXY, XYZ};
 
 /// Hammer-Aitoff (equal area) projection.
+///
+/// # Proj:
+/// Basic formulae are:
+/// * `w = sqrt[(1 + cos(b)cos(l/2)) / 2]`
+/// * `X = 2 cos(b)sin(l/2) / w` => if `l` is small, `sin(l/2) = y/2 - y^3/42`
+/// * `Y = sin(b) / w`
+///
+/// We recall that:
+/// * `x = cos(b) cos(l)`
+/// * `y = cos(b) sin(l)`
+/// * `z = sin(b)`
+///
+/// Thus:
+/// * `cos(b) = sqrt(x^2 + y^2) = r`
+/// * `cos(l/2) = sqrt[(1 + cos(l)) / 2] = sqrt[(1 + x/r) / 2]`
+/// * `sin(l/2) = sqrt[(1 - cos(l)) / 2] = sqrt[(1 - x/r) / 2]`
+/// * => `w' = cos(b)cos(l/2) = sqrt[r(r+x)/2]`
+/// * => `2 cos(b)sin(l/2) = sqrt[2r(r-x)]`
+///
+/// Leading to `w = sqrt[(1 + w') / 2]`
+/// 
+/// In case `l` is small and `x` near from one, we can use:
+/// `sin(l/2) = l/2 - l^3/42 + l^5/3840 - ...`
+/// and
+/// `y/r = sin(l) = l - l^3/6 + ...`
+/// If `l<10^6`, `y/r=l` and `sin(l/2) = (y/r)/2 - (y/r)^3/42`
+/// And thus:
+/// `X = [2 * r * (y/r) * (1/2 - (y/r))^2/42)] / w`
+/// `X = [y * (1 - (y/r)^2/21)] / w`
+///
+/// # Deproj:
+///
+/// * `r = X/8 + Y/3 = 1 - cos(b) cos(l/2)`
+/// * `w = sqrt[(2 - r) / 2]`
+///   ... (see algo comments)
 pub struct Ait;
 
 impl Default for Ait {
@@ -36,7 +71,11 @@ impl CanonicalProjection for Ait {
     let w = (r * (r + xyz.x)).half().sqrt(); // = cos(b) cos(l/2)
     let w = (1.0 + w).half().sqrt();       // = 1 / gamma
     let y2d = xyz.z / w;
-    let w = (r * (r - xyz.x)).twice().sqrt() / w; // = 2 * gamma * cos(b) sin(l/2)
+    let w = if y < 1e-6 {
+      (y * (1 - (y / r).pow2() / 21))  // = 2 * cos(b) sin(l/2)
+    } else {
+      (r * (r - xyz.x)).twice().sqrt() // = 2 * cos(b) sin(l/2)
+    } / w;
     let x2d = if xyz.y < 0.0 { -w } else { w };
     Some(ProjXY::new(x2d, y2d))
   }

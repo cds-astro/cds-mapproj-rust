@@ -1,7 +1,7 @@
-//! North Celestial Pole orthographic porjection.
+//! North Celestial Pole orthographic projection.
 use crate::{CanonicalProjection, CustomFloat, ProjBounds, ProjXY, XYZ};
 
-/// North Celestial Pole orthographic porjection.
+/// North Celestial Pole orthographic projection.
 pub struct Ncp;
 
 impl Default for Ncp {
