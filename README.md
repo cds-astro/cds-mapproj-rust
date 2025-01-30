@@ -10,14 +10,15 @@ Implementation of (a part of) map projections defined in the [FITS World Coordin
 Purpose
 -------
 
-Mainly to add projections and to support the display of FITS images in Aladin Lite V3.
+Mainly to add projections and to support the display of FITS images in
+[Aladin Lite V3](https://aladin.cds.unistra.fr/AladinLite/).
 
 
 Warning
 -------
 
 This library:
-* does not support FITS reading/parsing and keywords analysis;
+* does not support FITS reading/parsing and keywords analysis, for such features, see [wcs-rs](https://github.com/cds-astro/wcs-rs) by Matthieu Baumann;
 * is still in an early stage (see To Do List) and will evolve when included in Aladin Lite V3.
 
 
