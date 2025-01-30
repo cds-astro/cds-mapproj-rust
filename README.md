@@ -10,16 +10,20 @@ Implementation of (a part of) map projections defined in the [FITS World Coordin
 Purpose
 -------
 
-Mainly to add projections and to support the display of FITS images in
+The original purpose was mainly to add projections and to support the display of FITS images in
 [Aladin Lite V3](https://aladin.cds.unistra.fr/AladinLite/).
+Now, this library is also used in the display of HEALPix density maps (Skymaps), 
+of Multi Order healpix Maps (MOMs) and of Multi Order Coverage maps (MOCs)
+in the [cds-healpix-rust](https://github.com/cds-astro/cds-healpix-rust) 
+and [cds-moc-rust](https://github.com/cds-astro/cds-moc-rust) projects.
 
 
-Warning
--------
+Disclaimer
+----------
 
-This library:
-* does not support FITS reading/parsing and keywords analysis, for such features, see [wcs-rs](https://github.com/cds-astro/wcs-rs) by Matthieu Baumann;
-* is still in an early stage (see To Do List) and will evolve when included in Aladin Lite V3.
+This library does not support FITS parsing and keywords analysis.
+For such features, see the [fits-rs](https://github.com/cds-astro/fitsrs)
+ and [wcs-rs](https://github.com/cds-astro/wcs-rs) projects by Matthieu Baumann.
 
 
 Details
@@ -119,6 +123,16 @@ To Do list
 * [X] Add to git the pdf document containing computational details
 * [ ] Check, fix typo, enrich the pdf document containing computational details
 * [ ] Add generation of projection files and plots (like in the Java lib)
+
+
+Acknowledgements
+----------------
+
+If you use this code and work in a scientific public domain
+(especially astronomy), please acknowledge its usage and the
+[CDS](https://en.wikipedia.org/wiki/Centre_de_donn%C3%A9es_astronomiques_de_Strasbourg)
+who developed it.
+It may help us in promoting our work to our financiers.
 
 
 License
