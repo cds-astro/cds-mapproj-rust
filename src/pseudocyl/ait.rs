@@ -71,11 +71,12 @@ impl CanonicalProjection for Ait {
     let w = (r * (r + xyz.x)).half().sqrt(); // = cos(b) cos(l/2)
     let w = (1.0 + w).half().sqrt();       // = 1 / gamma
     let y2d = xyz.z / w;
-    let w = if y < 1e-6 {
+    let w = (r * (r - xyz.x)).twice().sqrt() / w; // = 2 * gamma * cos(b) sin(l/2)
+    /*let w = if y < 1e-6 {
       (y * (1 - (y / r).pow2() / 21))  // = 2 * cos(b) sin(l/2)
     } else {
       (r * (r - xyz.x)).twice().sqrt() // = 2 * cos(b) sin(l/2)
-    } / w;
+    } / w;*/
     let x2d = if xyz.y < 0.0 { -w } else { w };
     Some(ProjXY::new(x2d, y2d))
   }

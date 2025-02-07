@@ -1,7 +1,7 @@
 use mapproj::{
   CenteredProjection, ImgXY, LonLat,
   img2celestial::Img2Celestial,
-  img2proj::{ImgXY2ProjXY, WcsImgXY2ProjXY},
+  img2proj::WcsImgXY2ProjXY,
   zenithal::sin::Sin,
 };
 
