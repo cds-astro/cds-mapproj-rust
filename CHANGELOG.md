@@ -1,5 +1,15 @@
 # `mapproj` Change Log
 
+
+## 0.4.0
+
+Released 2025-02-10
+
+### Add
+
+* Add a constructor for defining a rotation matrix from a lonlat + position angle
+
+
 ## 0.3.0
 
 Released 2022-12-13
