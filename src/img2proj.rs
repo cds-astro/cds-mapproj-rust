@@ -115,7 +115,7 @@ pub struct ReversedEastPngImgXY2ProjXY {
 }
 
 impl ReversedEastPngImgXY2ProjXY {
-    ///
+    /// Create a new instance from the image size and projection bounds.
     #[must_use]
     pub fn from(
         img_size: (u16, u16),
@@ -160,6 +160,7 @@ pub struct WcsImgXY2ProjXY {
     /// Translation vector (in pixel units, so no units).
     crpix1: f64,
     crpix2: f64,
+
     /// Rotation (no units) combined with a scale (in radians) matrix.
     cd11: f64,
     cd12: f64,
@@ -301,16 +302,16 @@ impl ImgXY2ProjXY for WcsWithSipImgXY2ProjXY {
     /// # Params
     /// * `imgXY`: pixel coordinates (no units) to be transformed intermediate world coordinates
     fn img2proj(&self, xy: &ImgXY) -> ProjXY {
-        // Translation
-        let mut x = xy.x - self.wcs.crpix1;
-        let mut y = xy.y - self.wcs.crpix2;
-        let tmp = x;
-        x += self.sip.f(x, y);
-        y += self.sip.g(tmp, y);
-        // Rotation + scale
+        // Translation to get u, v relative pixel coordinates
+        let u = xy.x - self.wcs.crpix1;
+        let v = xy.y - self.wcs.crpix2;
+        // Add SIP distortion: (u + f(u,v), v + g(u,v))
+        let x_distorted = u + self.sip.f(u, v);
+        let y_distorted = v + self.sip.g(u, v);
+        // Apply CD matrix (rotation + scale)
         ProjXY::new(
-            self.wcs.cd11 * x + self.wcs.cd12 * y,
-            self.wcs.cd21 * x + self.wcs.cd22 * y,
+            self.wcs.cd11 * x_distorted + self.wcs.cd12 * y_distorted,
+            self.wcs.cd21 * x_distorted + self.wcs.cd22 * y_distorted,
         )
     }
 
@@ -355,10 +356,275 @@ pub struct WcsWithSipProjXY2ImgXY {
 
 impl ProjXY2ImgXY for WcsWithSipProjXY2ImgXY {
     fn proj2img(&self, xy: &ProjXY) -> Option<ImgXY> {
-        let x = self.wcs.icd11 * xy.x + self.wcs.icd12 * xy.y + self.wcs.crpix1;
-        let y = self.wcs.icd21 * xy.x + self.wcs.icd22 * xy.y + self.wcs.crpix2;
+        // Apply inverse CD matrix to get corrected pixel coordinates U, V
+        let u_corrected = self.wcs.icd11 * xy.x + self.wcs.icd12 * xy.y;
+        let v_corrected = self.wcs.icd21 * xy.x + self.wcs.icd22 * xy.y;
+
+        // Apply inverse SIP transformation to get u, v from U, V
+        // u = U + F(U,V), v = V + G(U,V) where F,G are inverse polynomials
         self.sip
-            .inverse(x, y)
-            .map(|ImgXY { x: rx, y: ry }| ImgXY::new(x + rx, y + ry))
+            .inverse(u_corrected, v_corrected)
+            .map(|ImgXY { x: u, y: v }| {
+                // Translate back to image pixel coordinates
+                ImgXY::new(u + self.wcs.crpix1, v + self.wcs.crpix2)
+            })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::sip::{Sip, SipAB, SipCoeff};
+
+    /// Helper function to create test SIP coefficients from IRAC Channel 4 example
+    /// (Table 1 from Shupe et al. ADASS XIV 2005)
+    fn create_test_sip_coefficients() -> (SipCoeff, SipCoeff) {
+        // A coefficients (degree 4)
+        let a_coef = [
+            0.0,
+            0.0,
+            2.1634068532689E-06,
+            1.0622437604068E-11,
+            1.4075878614807E-14,
+            0.0,
+            -5.194753640575E-06,
+            -5.2797808038221E-10,
+            -1.9317154005522E-14,
+            8.543473309812E-06,
+            -4.4012735467525E-11,
+            3.767898933666E-14,
+            -4.7518233007536E-10,
+            5.0860953083043E-15,
+            2.5776347115304E-14,
+        ];
+
+        // B coefficients (degree 4)
+        let b_coef = [
+            0.0,
+            0.0,
+            -7.2299995118730E-06,
+            -4.2102920235938E-10,
+            6.5531313110898E-16,
+            0.0,
+            6.1778338717084E-06,
+            -6.7603466821178E-11,
+            1.3892905568706E-14,
+            -1.7442694174934E-06,
+            -5.1333879897858E-10,
+            -2.9648166208490E-14,
+            8.5722142612681E-11,
+            -2.0749495718513E-15,
+            -1.812610418272E-14,
+        ];
+
+        (SipCoeff::new(a_coef.into()), SipCoeff::new(b_coef.into()))
+    }
+
+    #[test]
+    fn test_wcs_with_sip_forward_transformation() {
+        // Setup WCS parameters from IRAC Channel 4 example
+        let crpix1 = 2048.0;
+        let crpix2 = 1024.0;
+        let cd11 = -7.8481866550866E-06;
+        let cd12 = 1.0939720432379E-05;
+        let cd21 = 1.1406694624771E-05;
+        let cd22 = 8.6942510845452E-06;
+
+        let (a_coef, b_coef) = create_test_sip_coefficients();
+        let ab_coef = SipAB::new(a_coef, b_coef);
+        let sip = Sip::new(ab_coef, None, -2048.0..=2048.0, -1024.0..=1024.0);
+
+        let wcs = WcsImgXY2ProjXY::from_cd(crpix1, crpix2, cd11, cd12, cd21, cd22);
+        let wcs_sip = WcsWithSipImgXY2ProjXY::new(wcs, sip);
+
+        // Test point: offset from CRPIX by (3, 3) pixels
+        let img_xy = ImgXY::new(crpix1 + 3.0, crpix2 + 3.0);
+        let proj_xy = wcs_sip.img2proj(&img_xy);
+
+        // The transformation should apply:
+        // 1. u = 3.0, v = 3.0 (relative to CRPIX)
+        // 2. f(3,3) ≈ 4.95811569e-05, g(3,3) ≈ -2.51926572e-05 (from SIP test)
+        // 3. u_dist = 3.0 + 4.95811569e-05 ≈ 3.0000495811569
+        // 4. v_dist = 3.0 - 2.51926572e-05 ≈ 2.9999748073428
+        // 5. Apply CD matrix to (u_dist, v_dist)
+
+        let u_dist = 3.0 + 4.95811569e-05;
+        let v_dist = 3.0 - 2.51926572e-05;
+        let expected_x = cd11.to_radians() * u_dist + cd12.to_radians() * v_dist;
+        let expected_y = cd21.to_radians() * u_dist + cd22.to_radians() * v_dist;
+
+        // Verify the transformation is correct
+        assert!((proj_xy.x - expected_x).abs() < 1e-15);
+        assert!((proj_xy.y - expected_y).abs() < 1e-15);
+    }
+
+    #[test]
+    fn test_simple_sip_round_trip() {
+        // Very simple test with small, well-behaved values
+        let crpix1 = 100.0;
+        let crpix2 = 100.0;
+        let cd11 = 1.0e-5;
+        let cd12 = 0.0;
+        let cd21 = 0.0;
+        let cd22 = 1.0e-5;
+
+        // Zero distortion - should behave exactly like regular WCS
+        let a_coef = [0.0];
+        let b_coef = [0.0];
+        let sip_a = SipCoeff::new(a_coef.into());
+        let sip_b = SipCoeff::new(b_coef.into());
+        let ab_proj = SipAB::new(sip_a, sip_b);
+
+        let sip = Sip::new(ab_proj, None, -100.0..=100.0, -100.0..=100.0);
+
+        let wcs = WcsImgXY2ProjXY::from_cd(crpix1, crpix2, cd11, cd12, cd21, cd22);
+        let wcs_sip = WcsWithSipImgXY2ProjXY::new(wcs, sip);
+
+        // Test point
+        let img_xy = ImgXY::new(105.0, 103.0);
+        let inverse = wcs_sip.inverse();
+
+        let proj_xy = wcs_sip.img2proj(&img_xy);
+        let img_xy_back = inverse.proj2img(&proj_xy).expect("Inverse should succeed");
+
+        // With zero distortion, should round-trip perfectly
+        assert!((img_xy_back.x - img_xy.x).abs() < 1e-10);
+        assert!((img_xy_back.y - img_xy.y).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_wcs_with_sip_round_trip_with_newton_raphson() {
+        // Test round-trip transformation using Newton-Raphson inverse (no inverse polynomials)
+        let crpix1 = 100.0;
+        let crpix2 = 100.0;
+        let cd11 = 1.0e-5;
+        let cd12 = 0.0;
+        let cd21 = 0.0;
+        let cd22 = 1.0e-5;
+
+        // Small 2nd order distortion
+        let a_coef = [0.0, 0.0, 1.0e-8, 0.0, 5.0e-9, 0.0];
+        let b_coef = [0.0, 0.0, -1.0e-8, 0.0, 3.0e-9, 0.0];
+        let sip_a = SipCoeff::new(a_coef.into());
+        let sip_b = SipCoeff::new(b_coef.into());
+        let ab_proj = SipAB::new(sip_a, sip_b);
+
+        // No inverse polynomials - will use Newton-Raphson
+        let sip = Sip::new(ab_proj, None, -100.0..=100.0, -100.0..=100.0);
+
+        let wcs = WcsImgXY2ProjXY::from_cd(crpix1, crpix2, cd11, cd12, cd21, cd22);
+        let wcs_sip = WcsWithSipImgXY2ProjXY::new(wcs, sip);
+
+        // Test a point near the center
+        let img_xy = ImgXY::new(105.0, 103.0);
+        let inverse = wcs_sip.inverse();
+
+        let proj_xy = wcs_sip.img2proj(&img_xy);
+        let img_xy_back = inverse.proj2img(&proj_xy).expect("Inverse should succeed");
+
+        // Newton-Raphson should converge to high precision for small distortions
+        assert!(
+            (img_xy_back.x - img_xy.x).abs() < 1e-6,
+            "X mismatch: {} vs {}, diff: {}",
+            img_xy_back.x,
+            img_xy.x,
+            (img_xy_back.x - img_xy.x).abs()
+        );
+        assert!(
+            (img_xy_back.y - img_xy.y).abs() < 1e-6,
+            "Y mismatch: {} vs {}, diff: {}",
+            img_xy_back.y,
+            img_xy.y,
+            (img_xy_back.y - img_xy.y).abs()
+        );
+    }
+
+    #[test]
+    fn test_wcs_with_sip_forward_satisfies_paper_equation() {
+        // Verify that the forward transformation satisfies Equation 1 from the SIP paper:
+        // [x]   [CD11 CD12] [u + f(u,v)]
+        // [y] = [CD21 CD22] [v + g(u,v)]
+
+        let crpix1 = 100.0;
+        let crpix2 = 200.0;
+        let cd11 = 1.0e-5;
+        let cd12 = 0.5e-5;
+        let cd21 = -0.5e-5;
+        let cd22 = 1.0e-5;
+
+        // Simple 2nd order polynomial for testing
+        let a_coef = [0.0, 0.0, 1.0e-7, 0.0, 2.0e-7, 0.0];
+        let b_coef = [0.0, 0.0, -1.0e-7, 0.0, 1.5e-7, 0.0];
+
+        let sip_a = SipCoeff::new(a_coef.into());
+        let sip_b = SipCoeff::new(b_coef.into());
+        let ab_coef = SipAB::new(sip_a, sip_b);
+        let sip = Sip::new(ab_coef, None, -200.0..=200.0, -300.0..=300.0);
+
+        let wcs = WcsImgXY2ProjXY::from_cd(crpix1, crpix2, cd11, cd12, cd21, cd22);
+        let wcs_sip = WcsWithSipImgXY2ProjXY::new(wcs, sip.clone());
+
+        // Test point
+        let img_xy = ImgXY::new(105.0, 210.0);
+        let u = 5.0;
+        let v = 10.0;
+
+        // Manually compute according to the paper's equation
+        let f_uv = sip.f(u, v);
+        let g_uv = sip.g(u, v);
+        let u_plus_f = u + f_uv;
+        let v_plus_g = v + g_uv;
+
+        let expected_x = cd11.to_radians() * u_plus_f + cd12.to_radians() * v_plus_g;
+        let expected_y = cd21.to_radians() * u_plus_f + cd22.to_radians() * v_plus_g;
+
+        // Get result from our implementation
+        let proj_xy = wcs_sip.img2proj(&img_xy);
+
+        // Should match exactly
+        assert!(
+            (proj_xy.x - expected_x).abs() < 1e-20,
+            "X: {} vs {}",
+            proj_xy.x,
+            expected_x
+        );
+        assert!(
+            (proj_xy.y - expected_y).abs() < 1e-20,
+            "Y: {} vs {}",
+            proj_xy.y,
+            expected_y
+        );
+    }
+
+    #[test]
+    fn test_wcs_without_sip_is_identity_to_basic_wcs() {
+        // Test that WCS without SIP polynomials behaves the same as basic WCS
+        let crpix1 = 512.0;
+        let crpix2 = 512.0;
+        let cd11 = -1.0e-5;
+        let cd12 = 0.0;
+        let cd21 = 0.0;
+        let cd22 = 1.0e-5;
+
+        // Create SIP with zero coefficients (identity distortion)
+        let a_coef = [0.0];
+        let b_coef = [0.0];
+        let sip_a = SipCoeff::new(a_coef.into());
+        let sip_b = SipCoeff::new(b_coef.into());
+        let ab_coef = SipAB::new(sip_a, sip_b);
+        let sip = Sip::new(ab_coef, None, -512.0..=512.0, -512.0..=512.0);
+
+        let wcs_basic = WcsImgXY2ProjXY::from_cd(crpix1, crpix2, cd11, cd12, cd21, cd22);
+        let wcs_with_sip = WcsWithSipImgXY2ProjXY::new(wcs_basic, sip);
+
+        // Test point
+        let img_xy = ImgXY::new(600.0, 400.0);
+
+        let proj_basic = wcs_basic.img2proj(&img_xy);
+        let proj_with_sip = wcs_with_sip.img2proj(&img_xy);
+
+        // Should be identical since SIP polynomials are zero
+        assert!((proj_basic.x - proj_with_sip.x).abs() < 1e-20);
+        assert!((proj_basic.y - proj_with_sip.y).abs() < 1e-20);
     }
 }

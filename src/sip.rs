@@ -1,36 +1,60 @@
 //! Implementation of the SIP standard.
+//!
 
 use crate::{CustomFloat, ImgXY};
 use std::ops::RangeInclusive;
 
 /// SIP Polynomial coefficient.
 /// In the polynomial, coefficient must be ordered like this:
-/// * `0_0, 0_1, 0_2, 0_3, 1_0, 1_1, 1_2, 2_0, 2_1, 3_0`
-/// * in which `p_q` correspond to the polynomial part `coeff_p_q * u^p * v^q`
-/// * Given an order `n`, the size of the array must be `n(n+1)/2`.
+///
+/// `0_0, 1_0, 2_0, 3_0, 0_1, 1_1, 2_1, 0_2, 1_2, 0_3`
+/// in which `p_q` correspond to the polynomial part `coeff_p_q * u^p * v^q`.
+///
+/// Note on "order"/degree: this implementation stores an internal `order` value
+/// equal to (degree + 1). For an internal `order = n` the flattened coefficient
+/// array length must be `n * (n + 1) / 2`. Equivalently, for polynomial degree
+/// `D` the number of coefficients is `(D+1)*(D+2)/2`.
 #[derive(Debug, Clone)]
 pub struct SipCoeff {
     /// Computed order of the polynomial
     order: u16,
 
     /// Polynomials coefficient matrix
-    c: Box<[f64]>,
+    coefficients: Box<[f64]>,
 }
 
 impl SipCoeff {
-    /// # Param
-    /// * `c`: array polynomial coefficients of size `n(n+1)/2`
+    /// Create a new SIP coefficient polynomial from the provided coefficients.
+    ///
+    /// # Params
+    /// * `coefficients`: flattened polynomial coefficients. Coefficients are
+    ///   ordered with the power of `u` (p) increasing fastest for each power
+    ///   of `v` (q). For example, for degree D = 3 the first coefficients are
+    ///   listed as: `0_0, 1_0, 2_0, 3_0, 0_1, 1_1, 2_1, 0_2, 1_2, 0_3` where
+    ///   `p_q` corresponds to the polynomial term `coeff_p_q * u^p * v^q`.
+    ///   In general for polynomial degree `D` the number of coefficients is
+    ///   `(D+1)*(D+2)/2` and this function expects a boxed slice of that size.
     #[must_use]
-    pub fn new(c: Box<[f64]>) -> Self {
-        let n_coeff = c.len();
+    pub fn new(coefficients: Box<[f64]>) -> Self {
+        let n_coeff = coefficients.len();
 
         let order = ((((n_coeff * 8) + 1) as f64).sqrt() as u16 - 1) / 2;
 
-        debug_assert_eq!(order * (order + 1) / 2, (c.len() as u16));
-        Self { order, c }
+        debug_assert_eq!(
+            order * (order + 1) / 2,
+            (coefficients.len() as u16),
+            "Invalid number of coefficients for a SIP polynomial"
+        );
+        Self {
+            order,
+            coefficients,
+        }
     }
 
     /// Returns the value of the polynomial, evaluated in `(u, v)`.
+    ///
+    /// We define u and v as relative pixel coordinates with origin at CRPIX1, CRPIX2.
+    /// x′ and y′ are “intermediate world coordinates” in degrees, with origin at CRVAL1, CRVAL2
     #[must_use]
     pub fn p(&self, u: f64, v: f64) -> f64 {
         let mut k = 0;
@@ -42,13 +66,17 @@ impl SipCoeff {
             u_pow = 1.0;
             // loop over u^j
             for _ in 0..self.order - i {
-                p += u_pow * v_pow * unsafe { self.c.get_unchecked(k) };
+                p += u_pow * v_pow * self.coefficients[k];
                 k += 1;
                 u_pow *= u;
             }
             v_pow *= v;
         }
-        debug_assert_eq!(k, self.c.len(), "Should have iterated over all of c");
+        debug_assert_eq!(
+            k,
+            self.coefficients.len(),
+            "Should have iterated over all of c"
+        );
         p
     }
 
@@ -61,9 +89,13 @@ impl SipCoeff {
         let mut u_pow: f64;
         for i in 0..self.order {
             u_pow = 1.0;
+            // The flattened coefficient array stores coefficients with the
+            // power of `u` (p) increasing fastest for each power of `v` (q).
+            // For dp/du we skip the p=0 term for each q (its derivative
+            // wrt u is zero), so advance `k` once to move past c_{0,q}.
             k += 1;
             for j in 1..self.order - i {
-                p += u_pow * v_pow * unsafe { self.c.get_unchecked(k) } * f64::from(j);
+                p += u_pow * v_pow * self.coefficients[k] * f64::from(j);
                 k += 1;
                 u_pow *= u;
             }
@@ -75,6 +107,9 @@ impl SipCoeff {
     /// Returns the value of the `dp/dv`, evaluated in `(u, v)`.
     #[must_use]
     pub fn dpdv(&self, u: f64, v: f64) -> f64 {
+        // For dp/dv we skip the entire q=0 block (which contains `order`
+        // coefficients: p=0..order-1 for q=0). Start `k` at `order` to
+        // position at the first coefficient with q=1.
         let mut k = (self.order) as usize;
         let mut p = 0_f64;
         let mut v_pow: f64 = 1.0;
@@ -82,7 +117,7 @@ impl SipCoeff {
         for i in 1..self.order {
             u_pow = 1.0;
             for _ in 0..self.order - i {
-                p += u_pow * v_pow * unsafe { self.c.get_unchecked(k) } * f64::from(i);
+                p += u_pow * v_pow * self.coefficients[k] * f64::from(i);
                 k += 1;
                 u_pow *= u;
             }
@@ -133,10 +168,10 @@ pub struct Sip {
     /// * `end`: `(NAXIS2 - CRPIX2 + EPS)`, with EPS a number of pixels allowing to enlarge the image bounds
     v: RangeInclusive<f64>,
 
+    /// Approximate bounds of image function.
     fuv: RangeInclusive<f64>,
     guv: RangeInclusive<f64>,
 
-    /// Number of iteration of the mutli-variate Newton-Raphson method (if no unproj polynomial).
     n_iter: u8,
 
     /// Precision used in the mutli-variate Newton-Raphson method (if no unproj polynomial).
@@ -145,6 +180,7 @@ pub struct Sip {
 
 impl Sip {
     /// Implements the SIP convention with the given polynomial coefficients.
+    ///
     /// # Params
     /// * `ab_proj`: SIP coefficients for the projection on the 1st and 2nd axis
     /// * `ab_deproj`: SIP coefficients for the deprojection on the 1st and 2nd axis (if any)
@@ -157,27 +193,49 @@ impl Sip {
         u: RangeInclusive<f64>,
         v: RangeInclusive<f64>,
     ) -> Self {
-        let t = ab_proj
-            .a
-            .p(*u.start(), *v.start())
-            .min(ab_proj.a.p(*u.start(), *v.end()));
-        let fuv_min = ab_proj.a.p(*u.start(), 0.0).min(t);
-        let t = ab_proj
-            .a
-            .p(*u.end(), *v.start())
-            .max(ab_proj.a.p(*u.end(), *v.end()));
-        let fuv_max = ab_proj.a.p(*u.end(), 0.0).max(t);
+        // Compute approximate range of f(u,v) and g(u,v) over the provided
+        // (u,v) domain by evaluating the projection polynomials at the
+        // four corners and a couple of midpoints (u at 0 and v at 0). This
+        // is explicit and easier to reason about than chained min/max calls.
+        let u_min = *u.start();
+        let u_max = *u.end();
+        let v_min = *v.start();
+        let v_max = *v.end();
 
-        let t = ab_proj
-            .b
-            .p(*u.start(), *v.start())
-            .min(ab_proj.b.p(*u.end(), *v.start()));
-        let guv_min = ab_proj.b.p(0.0, *v.start()).min(t);
-        let t = ab_proj
-            .b
-            .p(*u.start(), *v.end())
-            .max(ab_proj.b.p(*u.end(), *v.end()));
-        let guv_max = ab_proj.b.p(0.0, *v.end()).max(t);
+        // Build a consistent set of sample (u,v) points used to compute
+        // exact (sampled) ranges of the distortion functions f(u,v) and g(u,v).
+        let sample_points = [
+            (u_min, v_min),
+            (u_min, v_max),
+            (u_max, v_min),
+            (u_max, v_max),
+            (u_min, 0.0),
+            (u_max, 0.0),
+            (0.0, v_min),
+            (0.0, v_max),
+        ];
+
+        let mut fuv_min = f64::INFINITY;
+        let mut fuv_max = f64::NEG_INFINITY;
+        let mut guv_min = f64::INFINITY;
+        let mut guv_max = f64::NEG_INFINITY;
+
+        for (su, sv) in sample_points.iter().copied() {
+            let a_val = ab_proj.a.p(su, sv);
+            let b_val = ab_proj.b.p(su, sv);
+            if a_val < fuv_min {
+                fuv_min = a_val;
+            }
+            if a_val > fuv_max {
+                fuv_max = a_val;
+            }
+            if b_val < guv_min {
+                guv_min = b_val;
+            }
+            if b_val > guv_max {
+                guv_max = b_val;
+            }
+        }
 
         Self {
             ab_proj,
@@ -239,19 +297,32 @@ impl Sip {
 
     #[must_use]
     pub(crate) fn inverse(&self, fuv: f64, guv: f64) -> Option<ImgXY> {
-        // uv
+        // Quick containment check: compute conservative observed-coordinate
+        // bounds from the stored sampled distortion ranges `fuv`/`guv` and
+        // the u/v domain. Observed coordinates are approximately
+        // u + f(u,v) and v + g(u,v), so we form bounds as the sum of the
+        // domain and sampled distortion ranges.
+        let obs_u_min = *self.u.start() + *self.fuv.start();
+        let obs_u_max = *self.u.end() + *self.fuv.end();
+        let obs_v_min = *self.v.start() + *self.guv.start();
+        let obs_v_max = *self.v.end() + *self.guv.end();
+        if fuv < obs_u_min || fuv > obs_u_max || guv < obs_v_min || guv > obs_v_max {
+            return None;
+        }
+
+        // If polynomial deprojection is available, use it; otherwise fall
+        // back to the iterative Newton solver.
         if self.has_polynomial_deproj() {
             let u = self.u(fuv, guv).unwrap();
             let v = self.v(fuv, guv).unwrap();
             Some(ImgXY::new(u, v))
         } else {
-            // TODO: Make a grid and a 2-d tree to find the starting point (then multi-variate Newton)
-            None
+            self.bivariate_newton(fuv, guv)
         }
     }
 
     /// Multi-variate Newton-Raphson:
-    /// f1(x1, ..., xn) = 0es006500
+    /// f1(x1, ..., xn) = 0
     /// ...
     /// fn(x1, ..., xn) = 0
     ///  
@@ -269,44 +340,78 @@ impl Sip {
     ///
     #[must_use]
     pub fn bivariate_newton(&self, fuv: f64, guv: f64) -> Option<ImgXY> {
-        // Check input values are in the domain of validity
-        if self.fuv.contains(&fuv) && self.guv.contains(&guv) {
-            // Initial guess
-            let mut u = fuv;
-            let mut v = guv;
-            // Initial values
-            let mut f = self.f(u, v) - fuv;
-            let mut g = self.g(u, v) - guv;
-            // Bivariate Newton's method
-            let eps2 = self.eps.pow2();
+        // Try several small perturbations to the initial guess when solving
+        // the additive distortion equations u + f(u,v) = fuv, v + g(u,v) =
+        // guv. This helps avoid singular Jacobians or poor starting points.
+        let attempts = [
+            (0.0_f64, 0.0_f64),
+            (1e-3, 0.0),
+            (-1e-3, 0.0),
+            (0.0, 1e-3),
+            (0.0, -1e-3),
+            (1e-2, 1e-2),
+            (-1e-2, -1e-2),
+        ];
+
+        let eps2 = self.eps.pow2();
+
+        for (du, dv) in attempts.iter().copied() {
+            let mut u = fuv + du;
+            let mut v = guv + dv;
+
+            // Initial residuals for the additive system
+            let mut f = (u + self.f(u, v)) - fuv;
+            let mut g = (v + self.g(u, v)) - guv;
+
             let mut norm2 = f.pow2() + g.pow2();
             let mut i = 0;
-            while i < self.n_iter && norm2 < eps2 {
-                let a = self.dfdu(u, v);
+            while i < self.n_iter && norm2 > eps2 {
+                // Jacobian of the system [u + f(u,v), v + g(u,v)]
+                let a = 1.0 + self.dfdu(u, v);
                 let b = self.dfdv(u, v);
                 let c = self.dgdu(u, v);
-                let d = self.dgdv(u, v);
-                let det = 1.0 / (a * d - b * c);
-                u -= det * (f * d - g * b);
-                v -= det * (g * a - f * c);
-                f = self.f(u, v) - fuv;
-                g = self.g(u, v) - guv;
+                let d = 1.0 + self.dgdv(u, v);
+                let jac = a * d - b * c;
+                // If Jacobian is unusable, break and try the next initial guess.
+                // Use a practical tolerance rather than testing against
+                // `MIN_POSITIVE` (which is too small for numerical contexts).
+                // Scale epsilon by the diagonal terms to get a relative
+                // threshold that adapts to the magnitude of the problem.
+                let jac_tol = f64::EPSILON * (a.abs() + d.abs()).max(1.0);
+                if jac.is_nan() || jac.is_infinite() || jac.abs() <= jac_tol {
+                    break;
+                }
+                let inv_jac = 1.0 / jac;
+                // Take the Newton step. If the step is excessively large, damp it.
+                let step_u = inv_jac * (f * d - g * b);
+                let step_v = inv_jac * (g * a - f * c);
+                // Damping: prevent explosion by limiting maximum step magnitude
+                let max_step = 1e6_f64; // very large, defensive
+                let step_norm = step_u.abs().max(step_v.abs());
+                let (du_step, dv_step) = if step_norm > max_step {
+                    (
+                        step_u * (max_step / step_norm),
+                        step_v * (max_step / step_norm),
+                    )
+                } else {
+                    (step_u, step_v)
+                };
+                u -= du_step;
+                v -= dv_step;
+                f = (u + self.f(u, v)) - fuv;
+                g = (v + self.g(u, v)) - guv;
                 norm2 = f.pow2() + g.pow2();
                 i += 1;
             }
-            // Check that the result is in the domain of validity
-            if self.u.contains(&u) && self.v.contains(&v) {
-                // All good :)
-                Some(ImgXY::new(u, v))
-            } else {
-                // TODO: look for a different initial guess by making a grid of 300x300 and put results
-                // in a kd-tree. Then look at the nearest neighbour: it is the initial guess.
-                // And redo Newton.
-                None
+
+            // Check for convergence and domain validity
+            if norm2 <= eps2 && self.u.contains(&u) && self.v.contains(&v) {
+                return Some(ImgXY::new(u, v));
             }
-        } else {
-            None
         }
+        // If we exhausted attempts without returning above, no convergence
+        // was reached that satisfies the domain and tolerance.
+        None
     }
 }
 
@@ -317,8 +422,8 @@ mod tests {
     #[test]
     fn test_sip() {
         // taken from table 1 of
-        // "The SIP convention for Representing Distortion in FITS Image Headers" by David L. Shupe et al.
-        // in the proceedings of ADASS XIV (2005).
+        // "The SIP convention for Representing Distortion in FITS Image Headers"
+        // by David L. Shupe et al. in the proceedings of ADASS XIV (2005).
         //
         // CTYPE1 ’RA---TAN-SIP’
         // CTYPE2 ’DEC--TAN-SIP’
@@ -366,8 +471,10 @@ mod tests {
         // A_ORDER 4
         // B_ORDER 4
 
-        // In the polynomial, coefficient must be ordered like this:
-        // * `0_0, 0_1, 0_2, 0_3, 1_0, 1_1, 1_2, 2_0, 2_1, 3_0`
+        // In the polynomial, coefficients must be flattened with the power of
+        // `u` (p) increasing fastest for each power of `v` (q). For example
+        // for degree 3 the ordering used here is:
+        // `0_0, 1_0, 2_0, 3_0, 0_1, 1_1, 2_1, 0_2, 1_2, 0_3`.
         let a_coef = [
             0.0,
             0.0,
@@ -411,18 +518,175 @@ mod tests {
 
         let sip = Sip::new(ab_coef, None, -2048.0..=2048.0, -1024.0..=1024.0);
 
-        let tmp = sip.f(3.0, 3.0);
-        let tmp2 = sip.g(3.0, 3.0);
         let dfdu = sip.dfdu(3.0, 3.0);
         let dfdv = sip.dfdv(3.0, 3.0);
 
+        // Approximate dfdu and dfdv to ensure we calculated it correctly.
+        // As eps goes to 0, our approx derivative gets better, but numerical
+        // noise creeps in, the 1e-8 is working to get us near a sweet spot of
+        // mathematical precision and numerical precision for this comparison.
+        // Chosen by manual tweaking.
+        let eps = 1e-8;
         let da = sip.f(3.0, 3.0);
-        let db = sip.f(3.0 + 1e-9, 3.0);
-        let dc = sip.f(3.0, 3.0 + 1e-9);
-        let dfdu_approx = (db - da) / 1e-9;
-        let dfdv_approx = (dc - da) / 1e-9;
+        let db = sip.f(3.0 + eps, 3.0);
+        let dc = sip.f(3.0, 3.0 + eps);
+        let dfdu_approx = (db - da) / eps;
+        let dfdv_approx = (dc - da) / eps;
 
-        dbg!(tmp, tmp2, dfdu, dfdu_approx, dfdv, dfdv_approx);
-        panic!();
+        assert!((dfdu - dfdu_approx).abs() < 1e-11);
+        assert!((dfdv - dfdv_approx).abs() < 1e-11);
+
+        // dfdu and dfdv pass our sanity checks, but we do not know if f and g are
+        // correct
+
+        let tmp = sip.f(3.0, 3.0);
+        let tmp2 = sip.g(3.0, 3.0);
+
+        // These values were computed with astropy
+
+        // from astropy.wcs import WCS
+        // import numpy as np
+        // cr_pix = np.array([2048.0, 1024.0])
+        // wcs = WCS(header)
+        // wcs.sip_pix2foc(np.array([cr_pix + 3]), 1) - 3
+
+        assert!((tmp - 4.95811569e-05).abs() < 1e-11);
+        assert!((tmp2 - -2.51926572e-05).abs() < 1e-11);
+
+        // test inverse
+        let uv = sip.inverse(tmp + 3.0, tmp2 + 3.0).unwrap();
+        assert!((uv.x() - 3.0).abs() < 1e-7);
+        assert!((uv.y() - 3.0).abs() < 1e-7);
+    }
+
+    #[test]
+    fn test_sipcoeff_ordering() {
+        // Degree D = 2 -> coefficients count = (D+1)*(D+2)/2 = 6
+        // Coefficient order (flattened): 0_0, 1_0, 2_0, 0_1, 1_1, 0_2
+        // Define polynomial p(u,v) = c00 + c10*u + c20*u^2 + c01*v + c11*u*v + c02*v^2
+        let coeffs = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
+        let sc = SipCoeff::new(coeffs.into());
+        let u = 2.0_f64;
+        let v = 3.0_f64;
+        let expected = 1.0 + 2.0 * u + 3.0 * u * u + 4.0 * v + 5.0 * u * v + 6.0 * v * v;
+        assert!((sc.p(u, v) - expected).abs() < 1e-12);
+
+        // dp/du = 2 + 6*u + 5*v
+        let expected_du = 2.0 + 6.0 * u + 5.0 * v;
+        // dp/dv = 4 + 5*u + 12*v
+        let expected_dv = 4.0 + 5.0 * u + 12.0 * v;
+        assert!((sc.dpdu(u, v) - expected_du).abs() < 1e-12);
+        assert!((sc.dpdv(u, v) - expected_dv).abs() < 1e-12);
+    }
+
+    #[test]
+    fn test_inverse_with_deproj() {
+        // Projection polynomials (degree 1): f(u,v) = u, g(u,v) = v
+        let a_proj = [0.0, 1.0, 0.0]; // c00, c10, c01
+        let b_proj = [0.0, 0.0, 1.0];
+        let a_proj = SipCoeff::new(a_proj.into());
+        let b_proj = SipCoeff::new(b_proj.into());
+        let ab_proj = SipAB::new(a_proj, b_proj);
+
+        // Deprojection polynomials: u = 2*f + 3*g + 5, v = -f + 4*g - 1
+        // degree 1 flattened: c00, c10, c01
+        let a_deproj = [5.0, 2.0, 3.0];
+        let b_deproj = [-1.0, -1.0, 4.0];
+        let a_deproj = SipCoeff::new(a_deproj.into());
+        let b_deproj = SipCoeff::new(b_deproj.into());
+        let ab_deproj = SipAB::new(a_deproj, b_deproj);
+
+        let sip = Sip::new(ab_proj, Some(ab_deproj), -10.0..=10.0, -10.0..=10.0);
+
+        let fuv = 1.5;
+        let guv = -2.0;
+        let uv = sip.inverse(fuv, guv).unwrap();
+        // Expect u = 2*fuv + 3*guv + 5
+        assert!((uv.x() - (2.0 * fuv + 3.0 * guv + 5.0)).abs() < 1e-12);
+        // Expect v = -fuv + 4*guv - 1
+        assert!((uv.y() - (-fuv + 4.0 * guv - 1.0)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn test_inverse_linear_newton() {
+        // Small linear distortion: f = a*u, g = a*v with a = 1e-3
+        let a = 1e-3;
+        let a_proj = [0.0, a, 0.0];
+        let b_proj = [0.0, 0.0, a];
+        let sip = Sip::new(
+            SipAB::new(SipCoeff::new(a_proj.into()), SipCoeff::new(b_proj.into())),
+            None,
+            -1000.0..=1000.0,
+            -1000.0..=1000.0,
+        );
+
+        let u_true = 10.0;
+        let v_true = -7.5;
+        // Observed coordinates: u' = u + a*u = u*(1+a)
+        let fuv = u_true * (1.0 + a);
+        let guv = v_true * (1.0 + a);
+
+        let uv = sip.inverse(fuv, guv).unwrap();
+        assert!((uv.x() - u_true).abs() < 1e-9);
+        assert!((uv.y() - v_true).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_singular_jacobian_returns_none() {
+        // Create projection f = -u, g = -v so that Jacobian at any (u,v) makes
+        // 1 + df/du = 0 and 1 + dg/dv = 0 => determinant = 0
+        let a_proj = [0.0, -1.0, 0.0];
+        let b_proj = [0.0, 0.0, -1.0];
+        let sip = Sip::new(
+            SipAB::new(SipCoeff::new(a_proj.into()), SipCoeff::new(b_proj.into())),
+            None,
+            -10.0..=10.0,
+            -10.0..=10.0,
+        );
+
+        // For arbitrary observed coords, inverse should be None (no solution)
+        assert!(sip.inverse(1.0, 1.0).is_none());
+    }
+
+    #[test]
+    fn test_inverse_out_of_bounds_observed_returns_none() {
+        // Small linear distortion: f = a*u, g = a*v with a = 1e-3
+        let a = 1e-3;
+        let sip = Sip::new(
+            SipAB::new(
+                SipCoeff::new([0.0, a, 0.0].into()),
+                SipCoeff::new([0.0, 0.0, a].into()),
+            ),
+            None,
+            -1000.0..=1000.0,
+            -1000.0..=1000.0,
+        );
+
+        // Use an observed coordinate far outside the sampled observed bounds
+        assert!(sip.inverse(1.0e6, 1.0e6).is_none());
+    }
+
+    #[test]
+    fn test_sampled_fuv_guv_ranges_for_linear() {
+        // For a_proj(u,v) = u and b_proj(u,v) = v, sampled fuv/guv should
+        // match the u/v sample bounds used in construction.
+        let a_proj = [0.0, 1.0, 0.0]; // p(u,v) = u
+        let b_proj = [0.0, 0.0, 1.0]; // q(u,v) = v
+        let sip = Sip::new(
+            SipAB::new(SipCoeff::new(a_proj.into()), SipCoeff::new(b_proj.into())),
+            None,
+            -10.0..=10.0,
+            -5.0..=5.0,
+        );
+
+        let fuv_min = *sip.fuv.start();
+        let fuv_max = *sip.fuv.end();
+        let guv_min = *sip.guv.start();
+        let guv_max = *sip.guv.end();
+
+        assert!((fuv_min - -10.0).abs() < 1e-12);
+        assert!((fuv_max - 10.0).abs() < 1e-12);
+        assert!((guv_min - -5.0).abs() < 1e-12);
+        assert!((guv_max - 5.0).abs() < 1e-12);
     }
 }
