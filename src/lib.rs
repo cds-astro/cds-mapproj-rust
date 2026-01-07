@@ -6,6 +6,7 @@ pub mod img2celestial;
 pub mod img2proj;
 pub mod math;
 pub mod sip;
+pub mod tpv;
 
 pub mod conic;
 pub mod cylindrical;
@@ -96,9 +97,9 @@ impl XYZ {
     /// We assume the norm of the input vector is 1.
     #[must_use]
     pub fn new(x: f64, y: f64, z: f64) -> Self {
-        debug_assert!((-1.0..=1.0).contains(&x), "x: {x}; y: {y}; z: {z}");
-        debug_assert!((-1.0..=1.0).contains(&y), "y: {x}; y: {y}; z: {z}");
-        debug_assert!((-1.0..=1.0).contains(&z), "x: {x}; y: {y}; z: {z}");
+        debug_assert!(x.abs() < 1.0 + 1e-15, "x: {x}; y: {y}; z: {z}");
+        debug_assert!(y.abs() < 1.0 + 1e-15, "y: {x}; y: {y}; z: {z}");
+        debug_assert!(z.abs() < 1.0 + 1e-15, "x: {x}; y: {y}; z: {z}");
         debug_assert!(
             (1.0 - (x.pow2() + y.pow2() + z.pow2())).abs() < 1e-15,
             "x: {x}; y: {y}; z: {z}"

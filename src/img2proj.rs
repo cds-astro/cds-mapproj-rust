@@ -1,7 +1,7 @@
 //! Module containing the structure to convert back on forth
 //! from Image coordinates to Intermediate coordinates, i.e. coordinates in the projection plane.
 
-use crate::{sip::Sip, ImgXY, ProjXY};
+use crate::{sip::Sip, tpv::Tpv, ImgXY, ProjXY};
 use std::ops::RangeInclusive;
 
 /// Transform the XY coordinates in the projection plane in a pixel coordinates in an image.
@@ -261,12 +261,15 @@ impl ImgXY2ProjXY for WcsImgXY2ProjXY {
         // Compute the determinant of the CD matrix
         let det = self.cd11 * self.cd22 - self.cd12 * self.cd21;
         // Compute the coefficient of the inverse matrix
+        // For matrix [[a,b],[c,d]], inverse is (1/det)*[[d,-b],[-c,a]]
+        // So for [[cd11,cd12],[cd21,cd22]], inverse is:
+        // (1/det)*[[cd22,-cd12],[-cd21,cd11]]
         WcsProjXY2ImgXY {
             crpix1: self.crpix1,
             crpix2: self.crpix2,
             icd11: self.cd22 / det,
-            icd12: -self.cd21 / det,
-            icd21: -self.cd12 / det,
+            icd12: -self.cd12 / det,
+            icd21: -self.cd21 / det,
             icd22: self.cd11 / det,
         }
     }
@@ -371,6 +374,100 @@ impl ProjXY2ImgXY for WcsWithSipProjXY2ImgXY {
     }
 }
 
+/// WCS with TPV (Tangent Plane + Polynomial distortion) for image to projection conversion
+#[derive(Debug, Clone)]
+pub struct WcsWithTpvImgXY2ProjXY {
+    /// Regular WCS transformation
+    wcs: WcsImgXY2ProjXY,
+    /// TPV transformation
+    tpv: Tpv,
+}
+
+impl WcsWithTpvImgXY2ProjXY {
+    /// Add TPV convention to a regular WCS transformation.
+    #[must_use]
+    pub fn new(wcs: WcsImgXY2ProjXY, tpv: Tpv) -> Self {
+        Self { wcs, tpv }
+    }
+}
+
+impl ImgXY2ProjXY for WcsWithTpvImgXY2ProjXY {
+    type T = WcsWithTpvProjXY2ImgXY;
+
+    /// Transform pixel coordinates to intermediate world coordinates using TPV distortion.
+    ///
+    /// The transformation follows the TPV specification:
+    /// TPV transformation order per TPV standard:
+    /// 1. Translate pixel coordinates: (x, y) -> (u, v) = (x - CRPIX1, y - CRPIX2)
+    /// 2. Apply TPV distortion to PIXEL offsets: (u, v) -> (u', v')
+    /// 3. Apply CD matrix to get projection plane coordinates in radians: (u', v') -> (xi, eta)
+    ///
+    /// IMPORTANT: TPV polynomial operates on PIXEL offsets, NOT angular coordinates!
+    /// This is critical for nonlinear distortions - applying TPV after the CD matrix
+    /// would cause the distortion coefficients to have wrong units and magnitude.
+    ///
+    /// # Params
+    /// * `xy`: pixel coordinates (no units) to be transformed
+    fn img2proj(&self, xy: &ImgXY) -> ProjXY {
+        // Step 1: Translation to get pixel offset (u, v)
+        let u = xy.x - self.wcs.crpix1;
+        let v = xy.y - self.wcs.crpix2;
+
+        // Step 2: Apply TPV distortion to PIXEL offsets
+        // TPV polynomial operates on pixels, producing distorted pixel offsets
+        let (u_prime, v_prime) = self.tpv.project(u, v).unwrap_or((u, v));
+
+        // Step 3: Apply CD matrix to distorted pixel offsets to get radians
+        // CD matrix units: radians/pixel
+        let xi_rad = self.wcs.cd11 * u_prime + self.wcs.cd12 * v_prime;
+        let eta_rad = self.wcs.cd21 * u_prime + self.wcs.cd22 * v_prime;
+
+        ProjXY::new(xi_rad, eta_rad)
+    }
+
+    fn inverse(&self) -> Self::T {
+        WcsWithTpvProjXY2ImgXY {
+            wcs: self.wcs.inverse(),
+            tpv: self.tpv.clone(),
+        }
+    }
+}
+
+/// WCS with TPV projected to image XY
+#[derive(Debug, Clone)]
+pub struct WcsWithTpvProjXY2ImgXY {
+    /// Regular transformation
+    wcs: WcsProjXY2ImgXY,
+    /// TPV transformation
+    tpv: Tpv,
+}
+
+impl ProjXY2ImgXY for WcsWithTpvProjXY2ImgXY {
+    /// Inverse TPV transformation order (reverse of forward):
+    /// 1. Apply inverse CD matrix: (xi, eta) in radians -> (u', v') distorted pixel offsets
+    /// 2. Apply inverse TPV distortion: (u', v') -> (u, v) pixel offsets
+    /// 3. Translate: (u, v) -> (x, y) image coordinates
+    ///
+    /// IMPORTANT: TPV operates on PIXEL offsets, so inverse CD must come before inverse TPV.
+    fn proj2img(&self, xy: &ProjXY) -> Option<ImgXY> {
+        // Step 1: Apply inverse CD matrix to radians to get distorted PIXEL offsets
+        // Input: xi_rad, eta_rad (projection plane coordinates in radians)
+        // Output: u_prime, v_prime (distorted pixel offsets)
+        let u_prime = self.wcs.icd11 * xy.x + self.wcs.icd12 * xy.y;
+        let v_prime = self.wcs.icd21 * xy.x + self.wcs.icd22 * xy.y;
+
+        // Step 2: Apply inverse TPV to get undistorted pixel offsets
+        // Input: u_prime, v_prime (distorted pixel offsets)
+        // Output: u, v (undistorted pixel offsets)
+        let result = self.tpv.inverse(u_prime, v_prime)?;
+        let u = result.x;
+        let v = result.y;
+
+        // Step 3: Translate to image pixel coordinates
+        Some(ImgXY::new(u + self.wcs.crpix1, v + self.wcs.crpix2))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -443,9 +540,9 @@ mod tests {
 
         // The transformation should apply:
         // 1. u = 3.0, v = 3.0 (relative to CRPIX)
-        // 2. f(3,3) ≈ 4.95811569e-05, g(3,3) ≈ -2.51926572e-05 (from SIP test)
-        // 3. u_dist = 3.0 + 4.95811569e-05 ≈ 3.0000495811569
-        // 4. v_dist = 3.0 - 2.51926572e-05 ≈ 2.9999748073428
+        // 2. f(3,3) ~= 4.95811569e-05, g(3,3) ~= -2.51926572e-05 (from SIP test)
+        // 3. u_dist = 3.0 + 4.95811569e-05 ~= 3.0000495811569
+        // 4. v_dist = 3.0 - 2.51926572e-05 ~= 2.9999748073428
         // 5. Apply CD matrix to (u_dist, v_dist)
 
         let u_dist = 3.0 + 4.95811569e-05;
@@ -626,5 +723,198 @@ mod tests {
         // Should be identical since SIP polynomials are zero
         assert!((proj_basic.x - proj_with_sip.x).abs() < 1e-20);
         assert!((proj_basic.y - proj_with_sip.y).abs() < 1e-20);
+    }
+
+    // TPV tests
+    use crate::tpv::{Tpv, TpvCoeff, TpvPV};
+
+    // Note: test_wcs_with_tpv_identity removed because basic WCS uses radians/pixel
+    // while TPV expects degrees/pixel, making direct comparison invalid
+
+    #[test]
+    fn test_wcs_with_tpv_forward_transformation() {
+        // Test TPV forward transformation with simple linear distortion
+        let crpix1 = 100.0;
+        let crpix2 = 100.0;
+        let cd11 = 1.0e-5;
+        let cd12 = 0.0;
+        let cd21 = 0.0;
+        let cd22 = 1.0e-5;
+
+        // TPV with simple linear scaling: u' = 1.5*u, v' = 2.0*v
+        let pv1 = TpvCoeff::new_axis1(&[0.0, 1.5]);
+        let pv2 = TpvCoeff::new_axis2(&[0.0, 2.0]);
+        let pv = TpvPV::new(pv1, pv2);
+        // Range in PIXELS (TPV operates on pixel offsets)
+        let tpv = Tpv::new(pv, -100.0..=100.0, -100.0..=100.0);
+
+        let wcs = WcsImgXY2ProjXY::from_cd(crpix1, crpix2, cd11, cd12, cd21, cd22);
+        let wcs_tpv = WcsWithTpvImgXY2ProjXY::new(wcs, tpv);
+
+        // Test point
+        let img_xy = ImgXY::new(105.0, 103.0);
+        let u = 5.0; // pixel offset (x - crpix1)
+        let v = 3.0; // pixel offset (y - crpix2)
+
+        // CORRECT ORDER per TPV standard:
+        // Step 1: Apply TPV distortion to PIXEL offsets
+        let u_prime = 1.5 * u; // TPV: u' = 1.5*u (in pixels)
+        let v_prime = 2.0 * v; // TPV: v' = 2.0*v (in pixels)
+
+        // Step 2: Apply CD matrix to distorted pixels to get radians
+        let expected_x = cd11.to_radians() * u_prime;
+        let expected_y = cd22.to_radians() * v_prime;
+
+        let proj_xy = wcs_tpv.img2proj(&img_xy);
+
+        assert!(
+            (proj_xy.x - expected_x).abs() < 1e-15,
+            "X: {} vs {}",
+            proj_xy.x,
+            expected_x
+        );
+        assert!(
+            (proj_xy.y - expected_y).abs() < 1e-15,
+            "Y: {} vs {}",
+            proj_xy.y,
+            expected_y
+        );
+    }
+
+    #[test]
+    fn test_wcs_with_tpv_round_trip() {
+        // Test round-trip transformation with TPV
+        let crpix1 = 100.0;
+        let crpix2 = 100.0;
+        let cd11 = 1.0e-5;
+        let cd12 = 0.0;
+        let cd21 = 0.0;
+        let cd22 = 1.0e-5;
+
+        // TPV with small quadratic distortion
+        let pv1 = TpvCoeff::new_axis1(&[0.0, 1.0, 0.0, 0.0, 1e3, 0.0, 1e3]);
+        let pv2 = TpvCoeff::new_axis2(&[0.0, 1.0, 0.0, 0.0, 1e3, 0.0, 1e3]);
+        let pv = TpvPV::new(pv1, pv2);
+        // Range in PIXELS (TPV operates on pixel offsets, not angular coordinates)
+        let tpv = Tpv::new(pv, -100.0..=100.0, -100.0..=100.0);
+
+        let wcs = WcsImgXY2ProjXY::from_cd(crpix1, crpix2, cd11, cd12, cd21, cd22);
+        let wcs_tpv = WcsWithTpvImgXY2ProjXY::new(wcs, tpv);
+
+        // Test point near center
+        let img_xy = ImgXY::new(105.0, 103.0);
+        let inverse = wcs_tpv.inverse();
+
+        let proj_xy = wcs_tpv.img2proj(&img_xy);
+        let img_xy_back = inverse.proj2img(&proj_xy).expect("Inverse should succeed");
+
+        // Should round-trip with good precision
+        assert!(
+            (img_xy_back.x - img_xy.x).abs() < 1e-6,
+            "X mismatch: {} vs {}, diff: {}",
+            img_xy_back.x,
+            img_xy.x,
+            (img_xy_back.x - img_xy.x).abs()
+        );
+        assert!(
+            (img_xy_back.y - img_xy.y).abs() < 1e-6,
+            "Y mismatch: {} vs {}, diff: {}",
+            img_xy_back.y,
+            img_xy.y,
+            (img_xy_back.y - img_xy.y).abs()
+        );
+    }
+
+    #[test]
+    fn test_wcs_with_tpv_radial_distortion() {
+        // Test TPV with radial distortion terms
+        let crpix1 = 256.0;
+        let crpix2 = 256.0;
+        let cd11 = 1.0e-5;
+        let cd12 = 0.0;
+        let cd21 = 0.0;
+        let cd22 = 1.0e-5;
+
+        // TPV with radial term: u' = u + 0.01*r, v' = v + 0.01*r (in pixels)
+        let pv1 = TpvCoeff::new_axis1(&[0.0, 1.0, 0.0, 0.01]);
+        let pv2 = TpvCoeff::new_axis2(&[0.0, 1.0, 0.0, 0.01]);
+        let pv = TpvPV::new(pv1, pv2);
+        // Range in PIXELS (TPV operates on pixel offsets)
+        let tpv = Tpv::new(pv, -100.0..=100.0, -100.0..=100.0);
+
+        let wcs = WcsImgXY2ProjXY::from_cd(crpix1, crpix2, cd11, cd12, cd21, cd22);
+        let wcs_tpv = WcsWithTpvImgXY2ProjXY::new(wcs, tpv);
+
+        // Test point
+        let img_xy = ImgXY::new(260.0, 259.0);
+        let u = 4.0_f64; // pixel offset (x - crpix1)
+        let v = 3.0_f64; // pixel offset (y - crpix2)
+
+        // CORRECT ORDER per TPV standard:
+        // Step 1: Calculate r from PIXEL offsets
+        let r = (u * u + v * v).sqrt();
+
+        // Step 2: Apply TPV radial distortion to PIXEL offsets
+        let u_prime = u + 0.01 * r; // in pixels
+        let v_prime = v + 0.01 * r; // in pixels
+
+        // Step 3: Apply CD matrix to distorted pixels to get radians
+        let expected_x = cd11.to_radians() * u_prime;
+        let expected_y = cd22.to_radians() * v_prime;
+
+        let proj_xy = wcs_tpv.img2proj(&img_xy);
+
+        assert!(
+            (proj_xy.x - expected_x).abs() < 1e-15,
+            "X: {} vs {}",
+            proj_xy.x,
+            expected_x
+        );
+        assert!(
+            (proj_xy.y - expected_y).abs() < 1e-15,
+            "Y: {} vs {}",
+            proj_xy.y,
+            expected_y
+        );
+    }
+
+    #[test]
+    fn test_wcs_inverse_with_nondiagonal_cd_matrix() {
+        // Test that inverse CD matrix works correctly with non-diagonal matrices
+        // This test catches the bug where icd12 and icd21 were swapped
+        let crpix1 = 100.0;
+        let crpix2 = 200.0;
+        let cd11 = 1.0e-5; // degrees/pixel
+        let cd12 = 0.5e-5; // degrees/pixel (non-zero off-diagonal)
+        let cd21 = -0.3e-5; // degrees/pixel (non-zero off-diagonal)
+        let cd22 = 1.2e-5; // degrees/pixel
+
+        let wcs = WcsImgXY2ProjXY::from_cd(crpix1, crpix2, cd11, cd12, cd21, cd22);
+        let inverse = wcs.inverse();
+
+        // Test point
+        let img_xy = ImgXY::new(105.0, 203.0);
+
+        // Forward transformation
+        let proj_xy = wcs.img2proj(&img_xy);
+
+        // Inverse transformation
+        let img_xy_back = inverse.proj2img(&proj_xy).expect("Inverse should succeed");
+
+        // Round-trip should be exact (within floating point precision)
+        assert!(
+            (img_xy_back.x() - img_xy.x()).abs() < 1e-10,
+            "X round-trip failed: {} vs {}, diff: {}",
+            img_xy_back.x(),
+            img_xy.x(),
+            (img_xy_back.x() - img_xy.x()).abs()
+        );
+        assert!(
+            (img_xy_back.y() - img_xy.y()).abs() < 1e-10,
+            "Y round-trip failed: {} vs {}, diff: {}",
+            img_xy_back.y(),
+            img_xy.y(),
+            (img_xy_back.y() - img_xy.y()).abs()
+        );
     }
 }

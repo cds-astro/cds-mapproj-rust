@@ -54,7 +54,7 @@ impl SipCoeff {
     /// Returns the value of the polynomial, evaluated in `(u, v)`.
     ///
     /// We define u and v as relative pixel coordinates with origin at CRPIX1, CRPIX2.
-    /// x′ and y′ are “intermediate world coordinates” in degrees, with origin at CRVAL1, CRVAL2
+    /// x' and y' are “intermediate world coordinates” in degrees, with origin at CRVAL1, CRVAL2
     #[must_use]
     pub fn p(&self, u: f64, v: f64) -> f64 {
         let mut k = 0;
@@ -425,8 +425,8 @@ mod tests {
         // "The SIP convention for Representing Distortion in FITS Image Headers"
         // by David L. Shupe et al. in the proceedings of ADASS XIV (2005).
         //
-        // CTYPE1 ’RA---TAN-SIP’
-        // CTYPE2 ’DEC--TAN-SIP’
+        // CTYPE1 'RA---TAN-SIP'
+        // CTYPE2 'DEC--TAN-SIP'
         // CRPIX1 2048.0
         // CRPIX2 1024.0
         // CRVAL1 5.6260667398471
