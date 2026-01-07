@@ -266,37 +266,43 @@ impl Sip {
   }
 
   #[must_use]
-  pub(crate) fn dfdu(&self, u: f64, v: f64) -> f64 {
+  fn dfdu(&self, u: f64, v: f64) -> f64 {
     self.ab_proj.a.dpdu(u, v)
   }
 
   #[must_use]
-  pub(crate) fn dfdv(&self, u: f64, v: f64) -> f64 {
+  fn dfdv(&self, u: f64, v: f64) -> f64 {
     self.ab_proj.a.dpdv(u, v)
   }
 
   #[must_use]
-  pub(crate) fn dgdu(&self, u: f64, v: f64) -> f64 {
+  fn dgdu(&self, u: f64, v: f64) -> f64 {
     self.ab_proj.b.dpdu(u, v)
   }
 
   #[must_use]
-  pub(crate) fn dgdv(&self, u: f64, v: f64) -> f64 {
+  fn dgdv(&self, u: f64, v: f64) -> f64 {
     self.ab_proj.b.dpdv(u, v)
   }
 
   #[must_use]
-  pub(crate) fn u(&self, fuv: f64, guv: f64) -> Option<f64> {
+  fn u(&self, fuv: f64, guv: f64) -> Option<f64> {
     self.ab_deproj.as_ref().map(|ab| ab.a.p(fuv, guv))
   }
 
   #[must_use]
-  pub(crate) fn v(&self, fuv: f64, guv: f64) -> Option<f64> {
+  fn v(&self, fuv: f64, guv: f64) -> Option<f64> {
     self.ab_deproj.as_ref().map(|ab| ab.b.p(fuv, guv))
   }
 
+  /// Inverts SIP distortion: returns `(u, v)` from observed `(fuv, guv)`.
+  /// Uses polynomial deprojection if available, otherwise iterative Newton-Raphson.
   #[must_use]
-  pub(crate) fn inverse(&self, fuv: f64, guv: f64) -> Option<ImgXY> {
+  #[allow(
+    clippy::missing_panics_doc,
+    reason = "unwrap guaranteed by internal invariant"
+  )]
+  pub fn inverse(&self, fuv: f64, guv: f64) -> Option<ImgXY> {
     // Quick containment check: compute conservative observed-coordinate
     // bounds from the stored sampled distortion ranges `fuv`/`guv` and
     // the u/v domain. Observed coordinates are approximately
@@ -339,7 +345,7 @@ impl Sip {
   /// cd                     -c  a
   ///
   #[must_use]
-  pub fn bivariate_newton(&self, fuv: f64, guv: f64) -> Option<ImgXY> {
+  fn bivariate_newton(&self, fuv: f64, guv: f64) -> Option<ImgXY> {
     // Try several small perturbations to the initial guess when solving
     // the additive distortion equations u + f(u,v) = fuv, v + g(u,v) =
     // guv. This helps avoid singular Jacobians or poor starting points.

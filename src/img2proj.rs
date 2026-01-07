@@ -260,9 +260,6 @@ impl ImgXY2ProjXY for WcsImgXY2ProjXY {
     // Compute the determinant of the CD matrix
     let det = self.cd11 * self.cd22 - self.cd12 * self.cd21;
     // Compute the coefficient of the inverse matrix
-    // For matrix [[a,b],[c,d]], inverse is (1/det)*[[d,-b],[-c,a]]
-    // So for [[cd11,cd12],[cd21,cd22]], inverse is:
-    // (1/det)*[[cd22,-cd12],[-cd21,cd11]]
     WcsProjXY2ImgXY {
       crpix1: self.crpix1,
       crpix2: self.crpix2,
