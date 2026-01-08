@@ -158,7 +158,9 @@ impl XYZ {
   }
 }
 
-/// X, Y coordinates in an image
+/// X, Y coordinates in an image (in pixels, no units).
+/// Image coordinates are pixel positions, typically with origin at (0,0) or (1,1)
+/// depending on the convention used.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ImgXY {
   x: f64,
@@ -166,26 +168,32 @@ pub struct ImgXY {
 }
 
 impl ImgXY {
-  /// New image coordinates fo (x, y).
+  /// New image coordinates for (x, y).
+  /// # Params
+  /// * `x`: x-coordinate in pixels
+  /// * `y`: y-coordinate in pixels
   #[must_use]
   pub fn new(x: f64, y: f64) -> Self {
     Self { x, y }
   }
 
-  /// Get the x coordinate
+  /// Get the x coordinate (in pixels)
   #[must_use]
   pub fn x(&self) -> f64 {
     self.x
   }
 
-  /// Get the y coordinate
+  /// Get the y coordinate (in pixels)
   #[must_use]
   pub fn y(&self) -> f64 {
     self.y
   }
 }
 
-/// X, Y coordinates in the 2D projection plane
+/// X, Y coordinates in the 2D projection plane (in radians).
+/// These are intermediate world coordinates (also called native spherical coordinates)
+/// representing angular positions on the projection plane.
+/// Units: radians for both x and y coordinates.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ProjXY {
   x: f64,
@@ -193,18 +201,21 @@ pub struct ProjXY {
 }
 impl ProjXY {
   /// Construct new X, Y coordinates in the projection plane.
+  /// # Params
+  /// * `x`: x-coordinate in radians
+  /// * `y`: y-coordinate in radians
   #[must_use]
   pub fn new(x: f64, y: f64) -> Self {
     Self { x, y }
   }
 
-  /// Get the x coordinate
+  /// Get the x coordinate (in radians)
   #[must_use]
   pub fn x(&self) -> f64 {
     self.x
   }
 
-  /// Get the y coordinate
+  /// Get the y coordinate (in radians)
   #[must_use]
   pub fn y(&self) -> f64 {
     self.y

@@ -53,8 +53,16 @@ impl SipCoeff {
 
   /// Returns the value of the polynomial, evaluated in `(u, v)`.
   ///
-  /// We define u and v as relative pixel coordinates with origin at CRPIX1, CRPIX2.
-  /// x' and y' are “intermediate world coordinates” in degrees, with origin at CRVAL1, CRVAL2
+  /// The output is a polynomial distortion correction in pixel units (not angular coordinates).
+  /// The CD matrix (stored in radians/pixel) is applied after this pixel distortion.
+  ///
+  /// # Units
+  /// * Input: `u`, `v` are pixel offsets (dimensionless, in pixels)
+  /// * Output: distortion correction in pixels
+  ///
+  /// The SIP polynomial operates entirely in pixel space. The result is added to the
+  /// pixel offset, and only then is the CD matrix (with units radians/pixel) applied
+  /// to convert to angular coordinates on the projection plane.
   #[must_use]
   pub fn p(&self, u: f64, v: f64) -> f64 {
     let mut k = 0;
@@ -81,6 +89,10 @@ impl SipCoeff {
   }
 
   /// Returns the value of the `dp/du`, evaluated in `(u, v)`.
+  ///
+  /// # Units
+  /// * Input: `u`, `v` are pixel offsets (dimensionless, in pixels)
+  /// * Output: derivative in pixels per pixel (dimensionless)
   #[must_use]
   pub fn dpdu(&self, u: f64, v: f64) -> f64 {
     let mut k = 0;
@@ -105,6 +117,10 @@ impl SipCoeff {
   }
 
   /// Returns the value of the `dp/dv`, evaluated in `(u, v)`.
+  ///
+  /// # Units
+  /// * Input: `u`, `v` are pixel offsets (dimensionless, in pixels)
+  /// * Output: derivative in pixels per pixel (dimensionless)
   #[must_use]
   pub fn dpdv(&self, u: f64, v: f64) -> f64 {
     // For dp/dv we skip the entire q=0 block (which contains `order`
@@ -350,6 +366,7 @@ impl Sip {
     // the additive distortion equations u + f(u,v) = fuv, v + g(u,v) =
     // guv. This helps avoid singular Jacobians or poor starting points.
     let attempts = [
+      (fuv, guv),
       (0.0_f64, 0.0_f64),
       (1e-3, 0.0),
       (-1e-3, 0.0),
@@ -392,7 +409,7 @@ impl Sip {
         let step_u = inv_jac * (f * d - g * b);
         let step_v = inv_jac * (g * a - f * c);
         // Damping: prevent explosion by limiting maximum step magnitude
-        let max_step = 1e6_f64; // very large, defensive
+        let max_step = 1e6_f64;
         let step_norm = step_u.abs().max(step_v.abs());
         let (du_step, dv_step) = if step_norm > max_step {
           (

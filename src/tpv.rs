@@ -11,6 +11,8 @@
 //! ```
 //!
 //! Where r = sqrt(xi^2 + eta^2). Note: Axis 2 swaps xi/eta in linear terms.
+//! **IMPORTANT**: xi, eta, xi', eta' are all in DEGREES (intermediate world coords).
+//! Per TPV specification: "the units of xi, eta, f_xi, and f_eta are also degrees."
 //!
 //! ## Example
 //!
@@ -20,13 +22,12 @@
 //! // Radial distortion: xi' = xi + 0.01*r, eta' = eta + 0.01*r
 //! let pv1 = TpvCoeff::new_axis1(&[0.0, 1.0, 0.0, 0.01]);
 //! let pv2 = TpvCoeff::new_axis2(&[0.0, 1.0, 0.0, 0.01]);
-//! let tpv = Tpv::new(TpvPV::new(pv1, pv2), -100.0..=100.0, -100.0..=100.0);
+//! let tpv = Tpv::new(TpvPV::new(pv1, pv2));
 //!
-//! // Forward and inverse
-//! if let Some((xi_p, eta_p)) = tpv.project(10.0, 5.0) {
-//!     if let Some(result) = tpv.inverse(xi_p, eta_p) {
-//!         println!("Round-trip: ({}, {})", result.x(), result.y());
-//!     }
+//! // Forward and inverse (values in degrees)
+//! let (xi_p, eta_p) = tpv.project(10.0, 5.0);
+//! if let Some(result) = tpv.inverse(xi_p, eta_p) {
+//!     println!("Round-trip: ({}, {})", result.x(), result.y());
 //! }
 //! ```
 //!
@@ -35,7 +36,6 @@
 //! <https://fits.gsfc.nasa.gov/registry/tpvwcs/tpv.html>
 
 use crate::{CustomFloat, ImgXY};
-use std::ops::RangeInclusive;
 
 /// TPV polynomial coefficients for a single axis.
 ///
@@ -101,6 +101,16 @@ impl TpvCoeff {
   /// Evaluate the polynomial at (xi, eta).
   ///
   /// Returns xi' for axis 1, eta' for axis 2.
+  ///
+  /// # Units
+  /// * Input: `xi`, `eta` in DEGREES (intermediate world coordinates after CD matrix)
+  /// * Output: corrected intermediate world coordinate (also in DEGREES)
+  ///
+  /// TPV is a SEQUENT distortion per WCSLIB - it operates on intermediate world
+  /// coordinates (DEGREES) that have already been transformed by the CD matrix.
+  /// Unlike SIP (which is a PRIOR distortion operating on pixel offsets), TPV
+  /// computes corrected coordinates directly, not an additive correction.
+  /// Per TPV specification: "the units of xi, eta, f_xi, and f_eta are also degrees."
   #[must_use]
   pub fn eval(&self, xi: f64, eta: f64) -> f64 {
     let xi2 = xi * xi;
@@ -442,16 +452,6 @@ pub struct Tpv {
   /// TPV coefficients for both axes
   pv: TpvPV,
 
-  /// Approximate bounds of the xi domain of validity (in degrees)
-  xi_range: RangeInclusive<f64>,
-
-  /// Approximate bounds of the eta domain of validity (in degrees)
-  eta_range: RangeInclusive<f64>,
-
-  /// Approximate bounds of distorted coordinates
-  xi_prime_range: RangeInclusive<f64>,
-  eta_prime_range: RangeInclusive<f64>,
-
   /// Maximum iterations for Newton-Raphson
   n_iter: u8,
 
@@ -462,41 +462,9 @@ pub struct Tpv {
 impl Tpv {
   /// Create a new TPV distortion handler.
   #[must_use]
-  pub fn new(pv: TpvPV, xi_range: RangeInclusive<f64>, eta_range: RangeInclusive<f64>) -> Self {
-    // Compute approximate ranges of xi' and eta' by sampling
-    let sample_points = [
-      (*xi_range.start(), *eta_range.start()),
-      (*xi_range.start(), *eta_range.end()),
-      (*xi_range.end(), *eta_range.start()),
-      (*xi_range.end(), *eta_range.end()),
-      (*xi_range.start(), 0.0),
-      (*xi_range.end(), 0.0),
-      (0.0, *eta_range.start()),
-      (0.0, *eta_range.end()),
-      (0.0, 0.0),
-    ];
-
-    let mut xi_prime_min = f64::INFINITY;
-    let mut xi_prime_max = f64::NEG_INFINITY;
-    let mut eta_prime_min = f64::INFINITY;
-    let mut eta_prime_max = f64::NEG_INFINITY;
-
-    for &(sxi, seta) in &sample_points {
-      let xi_p = pv.pv1.eval(sxi, seta);
-      let eta_p = pv.pv2.eval(sxi, seta);
-
-      xi_prime_min = xi_prime_min.min(xi_p);
-      xi_prime_max = xi_prime_max.max(xi_p);
-      eta_prime_min = eta_prime_min.min(eta_p);
-      eta_prime_max = eta_prime_max.max(eta_p);
-    }
-
+  pub fn new(pv: TpvPV) -> Self {
     Self {
       pv,
-      xi_range,
-      eta_range,
-      xi_prime_range: xi_prime_min..=xi_prime_max,
-      eta_prime_range: eta_prime_min..=eta_prime_max,
       n_iter: 100,
       eps: 1.0e-9,
     }
@@ -504,25 +472,16 @@ impl Tpv {
 
   /// Apply forward TPV distortion: (xi, eta) -> (xi', eta').
   #[must_use]
-  pub fn project(&self, xi: f64, eta: f64) -> Option<(f64, f64)> {
-    if !self.xi_range.contains(&xi) || !self.eta_range.contains(&eta) {
-      return None;
-    }
-
+  pub fn project(&self, xi: f64, eta: f64) -> (f64, f64) {
     let xi_prime = self.pv.pv1.eval(xi, eta);
     let eta_prime = self.pv.pv2.eval(xi, eta);
 
-    Some((xi_prime, eta_prime))
+    (xi_prime, eta_prime)
   }
 
   /// Apply inverse TPV distortion: (xi', eta') -> (xi, eta) via Newton-Raphson.
   #[must_use]
   pub fn inverse(&self, xi_prime: f64, eta_prime: f64) -> Option<ImgXY> {
-    // Quick containment check
-    if !self.xi_prime_range.contains(&xi_prime) || !self.eta_prime_range.contains(&eta_prime) {
-      return None;
-    }
-
     self.bivariate_newton(xi_prime, eta_prime)
   }
 
@@ -531,9 +490,9 @@ impl Tpv {
   fn bivariate_newton(&self, xi_prime: f64, eta_prime: f64) -> Option<ImgXY> {
     // Try multiple initial guesses
     let attempts = [
-      (0.0_f64, 0.0_f64),
       // Often a good guess for small distortions
       (xi_prime, eta_prime),
+      (0.0_f64, 0.0_f64),
       (1e-3, 0.0),
       (-1e-3, 0.0),
       (0.0, 1e-3),
@@ -544,7 +503,7 @@ impl Tpv {
 
     let eps2 = self.eps.pow2();
 
-    for (dxi, deta) in attempts.iter().copied() {
+    for (_attempt_idx, (dxi, deta)) in attempts.iter().copied().enumerate() {
       let mut xi = xi_prime + dxi;
       let mut eta = eta_prime + deta;
 
@@ -598,8 +557,8 @@ impl Tpv {
         i += 1;
       }
 
-      // Check convergence and domain validity
-      if norm2 <= eps2 && self.xi_range.contains(&xi) && self.eta_range.contains(&eta) {
+      // Check convergence
+      if norm2 <= eps2 {
         return Some(ImgXY::new(xi, eta));
       }
     }
@@ -619,11 +578,11 @@ mod tests {
     let pv1 = TpvCoeff::new_axis1(&[]);
     let pv2 = TpvCoeff::new_axis2(&[]);
     let pv = TpvPV::new(pv1, pv2);
-    let tpv = Tpv::new(pv, -10.0..=10.0, -10.0..=10.0);
+    let tpv = Tpv::new(pv);
 
     let xi = 3.5;
     let eta = -2.7;
-    let (xi_p, eta_p) = tpv.project(xi, eta).unwrap();
+    let (xi_p, eta_p) = tpv.project(xi, eta);
 
     // For identity: xi' = xi, eta' = eta
     assert!((xi_p - xi).abs() < 1e-12);
@@ -638,11 +597,11 @@ mod tests {
     // PV2_0=0, PV2_1=3
     let pv2 = TpvCoeff::new_axis2(&[0.0, 3.0]);
     let pv = TpvPV::new(pv1, pv2);
-    let tpv = Tpv::new(pv, -10.0..=10.0, -10.0..=10.0);
+    let tpv = Tpv::new(pv);
 
     let xi = 2.0;
     let eta = 1.5;
-    let (xi_p, eta_p) = tpv.project(xi, eta).unwrap();
+    let (xi_p, eta_p) = tpv.project(xi, eta);
 
     assert!((xi_p - 2.0 * xi).abs() < 1e-12);
     assert!((eta_p - 3.0 * eta).abs() < 1e-12);
@@ -656,12 +615,12 @@ mod tests {
     // PV2_3 = 0.1
     let pv2 = TpvCoeff::new_axis2(&[0.0, 1.0, 0.0, 0.1]);
     let pv = TpvPV::new(pv1, pv2);
-    let tpv = Tpv::new(pv, -10.0..=10.0, -10.0..=10.0);
+    let tpv = Tpv::new(pv);
 
     let xi = 3.0_f64;
     let eta = 4.0_f64;
     let r = (xi * xi + eta * eta).sqrt();
-    let (xi_p, eta_p) = tpv.project(xi, eta).unwrap();
+    let (xi_p, eta_p) = tpv.project(xi, eta);
 
     assert!((xi_p - (xi + 0.1 * r)).abs() < 1e-12);
     assert!((eta_p - (eta + 0.1 * r)).abs() < 1e-12);
@@ -698,11 +657,11 @@ mod tests {
     let pv1 = TpvCoeff::new_axis1(&[0.0, 1.5, 0.0]);
     let pv2 = TpvCoeff::new_axis2(&[0.0, 2.0, 0.0]);
     let pv = TpvPV::new(pv1, pv2);
-    let tpv = Tpv::new(pv, -10.0..=10.0, -10.0..=10.0);
+    let tpv = Tpv::new(pv);
 
     let xi = 3.0;
     let eta = -2.0;
-    let (xi_p, eta_p) = tpv.project(xi, eta).unwrap();
+    let (xi_p, eta_p) = tpv.project(xi, eta);
 
     // Invert
     let result = tpv.inverse(xi_p, eta_p).unwrap();
@@ -717,11 +676,11 @@ mod tests {
     let pv1 = TpvCoeff::new_axis1(&[0.0, 1.0, 0.0, 0.0, 1e-3, 0.0, 1e-3]);
     let pv2 = TpvCoeff::new_axis2(&[0.0, 1.0, 0.0, 0.0, 1e-3, 0.0, 1e-3]);
     let pv = TpvPV::new(pv1, pv2);
-    let tpv = Tpv::new(pv, -100.0..=100.0, -100.0..=100.0);
+    let tpv = Tpv::new(pv);
 
     let xi = 10.0;
     let eta = 15.0;
-    let (xi_p, eta_p) = tpv.project(xi, eta).unwrap();
+    let (xi_p, eta_p) = tpv.project(xi, eta);
 
     let result = tpv.inverse(xi_p, eta_p).unwrap();
 
@@ -730,17 +689,24 @@ mod tests {
   }
 
   #[test]
-  fn test_tpv_out_of_bounds() {
+  fn test_tpv_no_bounds() {
+    // Test that TPV works without bounds checking
     let pv1 = TpvCoeff::new_axis1(&[]);
     let pv2 = TpvCoeff::new_axis2(&[]);
     let pv = TpvPV::new(pv1, pv2);
-    let tpv = Tpv::new(pv, -10.0..=10.0, -10.0..=10.0);
+    let tpv = Tpv::new(pv);
 
-    // Test out of bounds forward
-    assert!(tpv.project(15.0, 0.0).is_none());
+    // Test that coordinates outside the provided range still work (identity transform)
+    let (xi_p, eta_p) = tpv.project(15.0, 0.0);
+    assert!((xi_p - 15.0).abs() < 1e-12);
+    assert!((eta_p - 0.0).abs() < 1e-12);
 
-    // Test out of bounds inverse
-    assert!(tpv.inverse(100.0, 100.0).is_none());
+    // Test that inverse also works without bounds
+    let result = tpv.inverse(100.0, 100.0);
+    assert!(result.is_some());
+    let xy = result.unwrap();
+    assert!((xy.x() - 100.0).abs() < 1e-6);
+    assert!((xy.y() - 100.0).abs() < 1e-6);
   }
 
   #[test]
@@ -750,11 +716,11 @@ mod tests {
     let pv1 = TpvCoeff::new_axis1(&[0.0, 1.0, 0.5]);
     let pv2 = TpvCoeff::new_axis2(&[0.0, 1.0]);
     let pv = TpvPV::new(pv1, pv2);
-    let tpv = Tpv::new(pv, -10.0..=10.0, -10.0..=10.0);
+    let tpv = Tpv::new(pv);
 
     let xi = 2.0;
     let eta = 3.0;
-    let (xi_p, eta_p) = tpv.project(xi, eta).unwrap();
+    let (xi_p, eta_p) = tpv.project(xi, eta);
 
     // xi' should be: 0.0 + 1.0*xi + 0.5*eta = 2.0 + 1.5 = 3.5
     // eta' should be: 0.0 + 1.0*eta + 0.0*xi = 3.0
@@ -769,11 +735,11 @@ mod tests {
     let pv1 = TpvCoeff::new_axis1(&[0.0, 1.0]);
     let pv2 = TpvCoeff::new_axis2(&[0.0, 1.0, 0.7]);
     let pv = TpvPV::new(pv1, pv2);
-    let tpv = Tpv::new(pv, -10.0..=10.0, -10.0..=10.0);
+    let tpv = Tpv::new(pv);
 
     let xi = 2.0;
     let eta = 3.0;
-    let (xi_p, eta_p) = tpv.project(xi, eta).unwrap();
+    let (xi_p, eta_p) = tpv.project(xi, eta);
 
     // xi' should be: 0.0 + 1.0*xi + 0.0*eta = 2.0
     // eta' should be: 0.0 + 1.0*eta + 0.7*xi = 3.0 + 1.4 = 4.4
@@ -790,11 +756,11 @@ mod tests {
     let pv1 = TpvCoeff::new_axis1(&[0.0, 1.0, 0.0, 0.0, 1e-3, 0.0, 1e-3]);
     let pv2 = TpvCoeff::new_axis2(&[0.0, 1.0, 0.0, 0.0, 1e-3, 0.0, 1e-3]);
     let pv = TpvPV::new(pv1, pv2);
-    let tpv = Tpv::new(pv, -100.0..=100.0, -100.0..=100.0);
+    let tpv = Tpv::new(pv);
 
     let xi = 10.0;
     let eta = 15.0;
-    let (xi_p, eta_p) = tpv.project(xi, eta).unwrap();
+    let (xi_p, eta_p) = tpv.project(xi, eta);
 
     let expected_xi_p = 10.325;
     let expected_eta_p = 15.325;
@@ -828,7 +794,7 @@ mod tests {
     let pv1 = TpvCoeff::new_axis1(&pv1_coeffs);
     let pv2 = TpvCoeff::new_axis2(&pv2_coeffs);
     let pv = TpvPV::new(pv1, pv2);
-    let tpv = Tpv::new(pv, -100.0..=100.0, -100.0..=100.0);
+    let tpv = Tpv::new(pv);
 
     // Test point: xi=3, eta=4, r=5
     let xi = 3.0_f64;
@@ -836,7 +802,7 @@ mod tests {
     let r = (xi * xi + eta * eta).sqrt();
     assert!((r - 5.0).abs() < 1e-10);
 
-    let (xi_p, eta_p) = tpv.project(xi, eta).unwrap();
+    let (xi_p, eta_p) = tpv.project(xi, eta);
 
     // xi' = xi + 0.01*r + 0.0001*r^3 + 0.000001*r^5
     // r=5: xi' = 3 + 0.05 + 0.0125 + 0.003125 = 3.065625
@@ -862,11 +828,11 @@ mod tests {
     let pv1 = TpvCoeff::new_axis1(&[0.0, 1.0, 0.05, 0.0, 0.001, 0.0, 0.0005]);
     let pv2 = TpvCoeff::new_axis2(&[0.0, 1.0, -0.03, 0.0, 0.0008, 0.0, 0.0012]);
     let pv = TpvPV::new(pv1, pv2);
-    let tpv = Tpv::new(pv, -10.0..=10.0, -10.0..=10.0);
+    let tpv = Tpv::new(pv);
 
     let xi = 2.0;
     let eta = 3.0;
-    let (xi_p, eta_p) = tpv.project(xi, eta).unwrap();
+    let (xi_p, eta_p) = tpv.project(xi, eta);
 
     // xi' = 0 + 1*xi + 0.05*eta + 0.001*xi^2 + 0.0005*eta^2
     //     = 2 + 0.15 + 0.004 + 0.0045 = 2.1585
