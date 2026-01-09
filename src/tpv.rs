@@ -503,7 +503,7 @@ impl Tpv {
 
     let eps2 = self.eps.pow2();
 
-    for (_attempt_idx, (dxi, deta)) in attempts.iter().copied().enumerate() {
+    for (dxi, deta) in attempts.iter().copied() {
       let mut xi = xi_prime + dxi;
       let mut eta = eta_prime + deta;
 

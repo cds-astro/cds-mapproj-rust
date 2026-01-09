@@ -11,7 +11,9 @@ pub mod tpv;
 pub mod conic;
 pub mod cylindrical;
 pub mod hybrid;
+pub mod polyconic;
 pub mod pseudocyl;
+pub mod quadcube;
 pub mod zenithal;
 
 pub use math::CustomFloat;

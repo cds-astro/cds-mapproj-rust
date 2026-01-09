@@ -109,8 +109,8 @@ To Do list
 * [X] Add hybrid projection (`HPX`)
 * [X] Add pseudo cylindrical projections (`AIT`, `MOL`, `PAR`, `SFL`)
 * [X] Add zenithal projections (`AIR`, `ARC`, `AZP`, `FEYE`, `NCP`, `SIN`, `STG`, `SZP`, `TAN`, `ZEA`, `ZPN`)
-* [ ] Add polyconic and pseudoconic projections (`BON, PCO`)?
-* [ ] Add quad cube projections (`TSC`, `CSC`, `QSC`)?
+* [X] Add polyconic and pseudoconic projections (`BON`, `PCO`)
+* [X] Add quad cube projections (`TSC`, `CSC`, `QSC`)
 * [X] Add bounds to each projection
 * [ ] Make individual implementations of `is_in_proj_bounds` to avoid useless computations 
       (but will introduce redundancy with unproj)
@@ -119,7 +119,7 @@ To Do list
 * [X] Support `CRPIX` + `PC` + `CDELT` convention
 * [X] Support `CRPIX` + `CROTA` + `CDELT` convention
 * [ ] Add support for LONPOLE?
-* [ ] Test and complete SIP
+* [X] Test and complete SIP
 * [X] Add to git the pdf document containing computational details
 * [ ] Check, fix typo, enrich the pdf document containing computational details
 * [ ] Add generation of projection files and plots (like in the Java lib)
