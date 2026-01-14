@@ -1,9 +1,10 @@
 //! Zenithal (or azimuthal) equidistant projection.
 
-use std::f64::consts::PI;
 use crate::{CanonicalProjection, CustomFloat, ProjBounds, ProjXY, XYZ};
+use std::f64::consts::PI;
 
 /// Zenithal (or azimuthal) equidistant projection.
+#[derive(Debug, Clone, Copy)]
 pub struct Arc;
 
 impl Default for Arc {
@@ -13,32 +14,32 @@ impl Default for Arc {
 }
 
 impl Arc {
+  /// Construct a new Zenithal (or azimuthal) equidistant projection.
+  #[must_use]
   pub fn new() -> Self {
     Self
   }
 }
 
 impl CanonicalProjection for Arc {
-
   const NAME: &'static str = "Zenithal (or azimuthal) equidistant";
   const WCS_NAME: &'static str = "ARC";
 
   fn bounds(&self) -> &ProjBounds {
-    const PROJ_BOUNDS: ProjBounds = ProjBounds::new(
-      Some(-PI..=PI),
-      Some(-PI..=PI)
-    );
+    const PROJ_BOUNDS: ProjBounds = ProjBounds::new(Some(-PI..=PI), Some(-PI..=PI));
     &PROJ_BOUNDS
   }
-  
+
   fn proj(&self, xyz: &XYZ) -> Option<ProjXY> {
     if xyz.x > -1.0 {
       // Distance in the Euclidean plane (yz)
       // Angular distance is acos(x), but for small separation, asin(r) is more accurate.
       let r = (xyz.y.pow2() + xyz.z.pow2()).sqrt();
-      let r = if xyz.x > 0.0 { // Angular distance < PI/2, angular distance = asin(r)
+      let r = if xyz.x > 0.0 {
+        // Angular distance < PI/2, angular distance = asin(r)
         r.asinc()
-      } else { // Angular distance > PI/2, angular distance = acos(x)
+      } else {
+        // Angular distance > PI/2, angular distance = acos(x)
         xyz.x.acos() / r
       };
       Some(ProjXY::new(xyz.y * r, xyz.z * r))
@@ -59,4 +60,3 @@ impl CanonicalProjection for Arc {
     }
   }
 }
-

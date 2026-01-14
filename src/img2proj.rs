@@ -1,16 +1,12 @@
-//! Module containing the structure to convert back on forth 
+//! Module containing the structure to convert back on forth
 //! from Image coordinates to Intermediate coordinates, i.e. coordinates in the projection plane.
 
+use crate::{sip::Sip, ImgXY, ProjXY};
 use std::ops::RangeInclusive;
-use crate::{
-  ImgXY, ProjXY,
-  sip::Sip
-};
 
 /// Transform the XY coordinates in the projection plane in a pixel coordinates in an image.
 pub trait ProjXY2ImgXY {
-  
-  /// Transforms intermediate world coordinates -- i.e. coordinates in the canonical projection 
+  /// Transforms intermediate world coordinates -- i.e. coordinates in the canonical projection
   /// plane -- to pixel coordinates in an image.
   /// # Params
   /// * `xy` coordinates in the canonical projection plane.
@@ -19,7 +15,6 @@ pub trait ProjXY2ImgXY {
 
 /// Transform the pixel coordinates in an image to the XY coordinates in the projection plane.
 pub trait ImgXY2ProjXY {
-  
   /// Type of the inverse transformation.
   type T: ProjXY2ImgXY;
 
@@ -28,12 +23,13 @@ pub trait ImgXY2ProjXY {
   /// # Params
   /// * `xy`: pixel coordinates (no units)
   fn img2proj(&self, xy: &ImgXY) -> ProjXY;
-  
+
   /// Provide the inverse transformation.
   fn inverse(&self) -> Self::T;
 }
 
-#[derive(Clone)]
+/// Image to Projected plane conversion
+#[derive(Debug, Clone, Copy)]
 pub struct BasicImgXY2ProjXY {
   /// Projection x-axis coordinate at the image X-axis center.
   center_px: f64,
@@ -50,7 +46,6 @@ pub struct BasicImgXY2ProjXY {
 }
 
 impl BasicImgXY2ProjXY {
-  
   /// We assume the origin to be on the bottom left corner of the image,
   /// with the `x` increasing from left to right and `y` increasing bottom-up.
   /// # Remark
@@ -59,23 +54,24 @@ impl BasicImgXY2ProjXY {
   /// # Params
   /// * `img_size`: `(size_x, size_y)` number of pixels in each dimension
   /// * `proj_bounds`: `(bounds_x, bounds_y)` boundaries of the projection domain
+  #[must_use]
   pub fn from(
     img_size: (u16, u16),
-    proj_bounds: (&RangeInclusive<f64>, &RangeInclusive<f64>)
+    proj_bounds: (&RangeInclusive<f64>, &RangeInclusive<f64>),
   ) -> Self {
     // x-axis
-    let img_size_x = img_size.0 as f64;
+    let img_size_x = f64::from(img_size.0);
     let center_x = 0.5 * (img_size_x - 1.0);
     let xp_min = proj_bounds.0.start();
     let xp_max = proj_bounds.0.end();
-    let scale_x = (xp_max - xp_min) / img_size_x as f64;
+    let scale_x = (xp_max - xp_min) / img_size_x;
     let center_px = 0.5 * (xp_max + xp_min);
     // y-axis
-    let img_size_y = img_size.1 as f64;
+    let img_size_y = f64::from(img_size.1);
     let center_y = 0.5 * (img_size_y - 1.0);
     let yp_min = proj_bounds.1.start();
     let yp_max = proj_bounds.1.end();
-    let scale_y = (yp_max - yp_min) / img_size_y as f64;
+    let scale_y = (yp_max - yp_min) / img_size_y;
     let center_py = 0.5 * (yp_max + yp_min);
     // Create
     Self {
@@ -84,7 +80,7 @@ impl BasicImgXY2ProjXY {
       center_x,
       center_y,
       scale_x,
-      scale_y
+      scale_y,
     }
   }
 }
@@ -93,18 +89,17 @@ impl ImgXY2ProjXY for BasicImgXY2ProjXY {
   type T = Self;
 
   fn img2proj(&self, xy: &ImgXY) -> ProjXY {
-    let proj_x = self.center_px + (xy.x as f64 - self.center_x) * self.scale_x;
-    let proj_y = self.center_py + (xy.y as f64 - self.center_y) * self.scale_y;
+    let proj_x = self.center_px + (xy.x - self.center_x) * self.scale_x;
+    let proj_y = self.center_py + (xy.y - self.center_y) * self.scale_y;
     ProjXY::new(proj_x, proj_y)
   }
 
-  fn inverse(&self) ->  Self::T {
-    self.clone()
+  fn inverse(&self) -> Self::T {
+    *self
   }
 }
 
 impl ProjXY2ImgXY for BasicImgXY2ProjXY {
-
   fn proj2img(&self, xy: &ProjXY) -> Option<ImgXY> {
     let x = self.center_x + (xy.x - self.center_px) / self.scale_x;
     let y = self.center_y + (xy.y - self.center_py) / self.scale_y;
@@ -112,26 +107,26 @@ impl ProjXY2ImgXY for BasicImgXY2ProjXY {
   }
 }
 
-
 /// Specific implementation for PNG (top left origin) with East towards the left.
-#[derive(Clone)]
-pub struct ReversedEastPngImgXY2ProjXY{
+#[derive(Debug, Clone, Copy)]
+pub struct ReversedEastPngImgXY2ProjXY {
   y_img_max: f64,
   b: BasicImgXY2ProjXY,
 }
 
 impl ReversedEastPngImgXY2ProjXY {
+  ///
+  #[must_use]
   pub fn from(
     img_size: (u16, u16),
-    proj_bounds: (&RangeInclusive<f64>, &RangeInclusive<f64>)
+    proj_bounds: (&RangeInclusive<f64>, &RangeInclusive<f64>),
   ) -> Self {
-    Self{
-      y_img_max: (img_size.1 - 1) as f64,
-      b: BasicImgXY2ProjXY::from(img_size, proj_bounds) 
+    Self {
+      y_img_max: f64::from(img_size.1 - 1),
+      b: BasicImgXY2ProjXY::from(img_size, proj_bounds),
     }
   }
 }
-
 
 impl ImgXY2ProjXY for ReversedEastPngImgXY2ProjXY {
   type T = Self;
@@ -142,13 +137,12 @@ impl ImgXY2ProjXY for ReversedEastPngImgXY2ProjXY {
     ProjXY::new(-proj_x, proj_y)
   }
 
-  fn inverse(&self) ->  Self::T {
-    self.clone()
+  fn inverse(&self) -> Self::T {
+    *self
   }
 }
 
 impl ProjXY2ImgXY for ReversedEastPngImgXY2ProjXY {
-
   fn proj2img(&self, xy: &ProjXY) -> Option<ImgXY> {
     let x = self.b.center_x + (-xy.x - self.b.center_px) / self.b.scale_x;
     let y = self.b.center_y + (xy.y - self.b.center_py) / self.b.scale_y;
@@ -156,23 +150,23 @@ impl ProjXY2ImgXY for ReversedEastPngImgXY2ProjXY {
   }
 }
 
-
-
-/// Struct allowing to transform the pixel coordinates in an image to the XY coordinates 
+/// Struct allowing to transform the pixel coordinates in an image to the XY coordinates
 /// in the projection plane.
 /// The three constructors are each associated with one of the three convention
 /// describe in the FITS paper: CDij, CDELTi + PCij, CDELTi + CROTA2.
-#[derive(Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct WcsImgXY2ProjXY {
   /// Translation vector (in pixel units, so no units).
-  crpix1: f64, crpix2: f64,
+  crpix1: f64,
+  crpix2: f64,
   /// Rotation (no units) combined with a scale (in radians) matrix.
-  cd11: f64, cd12: f64,
-  cd21: f64, cd22: f64,
+  cd11: f64,
+  cd12: f64,
+  cd21: f64,
+  cd22: f64,
 }
 
 impl WcsImgXY2ProjXY {
-  
   /// Create a struct from the `CDij` convention.
   /// # Params
   /// * `crpix1`: value of the `CRPIX1` keyword in pixel units (so no units), use 0 as default value
@@ -181,13 +175,11 @@ impl WcsImgXY2ProjXY {
   /// * `cd12`: value of the `CD12` keyword (element of a rotation + scale matrix) in degrees, use 0 as default value
   /// * `cd21`: value of the `CD21` keyword (element of a rotation + scale matrix) in degrees, use 0 as default value
   /// * `cd22`: value of the `CD22` keyword (element of a rotation + scale matrix) in degrees, use 1 as default value
-  pub fn from_cd(
-    crpix1: f64, crpix2: f64,
-    cd11: f64, cd12: f64, 
-    cd21: f64, cd22: f64,
-  ) -> Self {
+  #[must_use]
+  pub fn from_cd(crpix1: f64, crpix2: f64, cd11: f64, cd12: f64, cd21: f64, cd22: f64) -> Self {
     Self {
-      crpix1, crpix2,
+      crpix1,
+      crpix2,
       cd11: cd11.to_radians(),
       cd12: cd12.to_radians(),
       cd21: cd21.to_radians(),
@@ -204,16 +196,25 @@ impl WcsImgXY2ProjXY {
   /// * `pc22`: value of the `PC22` keyword (element of a rotation matrix, no units), use 1 as default value
   /// * `cdelt1`: value of the `CDELT1` keyword, in degrees
   /// * `cdelt2`: value of the `CDELT2` keyword, in degrees
+  #[must_use]
+  #[allow(clippy::too_many_arguments, reason = "Unavoidable complexity")]
   pub fn from_pc(
-    crpix1: f64, crpix2: f64,
-    pc11: f64,  pc12: f64,
-    pc21: f64,  pc22: f64,
-    cdelt1: f64, cdelt2: f64
+    crpix1: f64,
+    crpix2: f64,
+    pc11: f64,
+    pc12: f64,
+    pc21: f64,
+    pc22: f64,
+    cdelt1: f64,
+    cdelt2: f64,
   ) -> Self {
     Self::from_cd(
-      crpix1, crpix2,
-      cdelt1 * pc11, cdelt1 * pc12,
-      cdelt2 * pc21, cdelt2 * pc22,
+      crpix1,
+      crpix2,
+      cdelt1 * pc11,
+      cdelt1 * pc12,
+      cdelt2 * pc21,
+      cdelt2 * pc22,
     )
   }
 
@@ -223,25 +224,23 @@ impl WcsImgXY2ProjXY {
   /// * `crota2`: value of the `CROTA2` keyword, in degrees
   /// * `cdelt1`: value of the `CDELT1` keyword, in degrees
   /// * `cdelt2`: value of the `CDELT2` keyword, in degrees
-  pub fn from_cr(
-    crpix1: f64, crpix2: f64,
-    crota2: f64,
-    cdelt1: f64, cdelt2: f64
-  ) -> Self {
+  #[must_use]
+  pub fn from_cr(crpix1: f64, crpix2: f64, crota2: f64, cdelt1: f64, cdelt2: f64) -> Self {
     let (sinc, cosc) = crota2.to_radians().sin_cos();
     Self::from_cd(
-      crpix1, crpix2, 
-      cdelt1 * cosc, cdelt1 * sinc,
-      -cdelt2 * sinc, cdelt2 * cosc
+      crpix1,
+      crpix2,
+      cdelt1 * cosc,
+      cdelt1 * sinc,
+      -cdelt2 * sinc,
+      cdelt2 * cosc,
     )
   }
-  
 }
 
 impl ImgXY2ProjXY for WcsImgXY2ProjXY {
-  
   type T = WcsProjXY2ImgXY;
-  
+
   /// Transform the pixel coordinates to the intermediate world coordinates
   /// (or native spherical coordinates) by applying first a translation
   /// (given the `CRPIXi` keywords value) and then a rotation plus a scale
@@ -253,13 +252,9 @@ impl ImgXY2ProjXY for WcsImgXY2ProjXY {
     let x = xy.x - self.crpix1;
     let y = xy.y - self.crpix2;
     // Rotation + scale
-    ProjXY::new(
-      self.cd11 * x + self.cd12 * y,
-      self.cd21 * x + self.cd22 * y
-    )
+    ProjXY::new(self.cd11 * x + self.cd12 * y, self.cd21 * x + self.cd22 * y)
   }
-  
-  
+
   fn inverse(&self) -> Self::T {
     // Compute the determinant of the CD matrix
     let det = self.cd11 * self.cd22 - self.cd12 * self.cd21;
@@ -267,18 +262,19 @@ impl ImgXY2ProjXY for WcsImgXY2ProjXY {
     WcsProjXY2ImgXY {
       crpix1: self.crpix1,
       crpix2: self.crpix2,
-      icd11:  self.cd22 / det,
+      icd11: self.cd22 / det,
       icd12: -self.cd21 / det,
       icd21: -self.cd12 / det,
-      icd22:  self.cd11 / det,
+      icd22: self.cd11 / det,
     }
   }
 }
 
-/// Struct allowing to transform the pixel coordinates in an image to the XY coordinates 
+/// Struct allowing to transform the pixel coordinates in an image to the XY coordinates
 /// in the projection plane.
 /// The three constructors are each associated with one of the three convention
 /// describe in the FITS paper: CDij, CDELTi + PCij, CDELTi + CROTA2.
+#[derive(Debug, Clone)]
 pub struct WcsWithSipImgXY2ProjXY {
   /// Regular transformation
   wcs: WcsImgXY2ProjXY,
@@ -287,16 +283,14 @@ pub struct WcsWithSipImgXY2ProjXY {
 }
 
 impl WcsWithSipImgXY2ProjXY {
-  
   /// Add SIP convention to a regular WCS transformation.
+  #[must_use]
   pub fn new(wcs: WcsImgXY2ProjXY, sip: Sip) -> Self {
     Self { wcs, sip }
   }
-  
 }
 
 impl ImgXY2ProjXY for WcsWithSipImgXY2ProjXY {
-
   type T = WcsWithSipProjXY2ImgXY;
 
   /// Transform the pixel coordinates to the intermediate world coordinates
@@ -315,53 +309,56 @@ impl ImgXY2ProjXY for WcsWithSipImgXY2ProjXY {
     // Rotation + scale
     ProjXY::new(
       self.wcs.cd11 * x + self.wcs.cd12 * y,
-      self.wcs.cd21 * x + self.wcs.cd22 * y
+      self.wcs.cd21 * x + self.wcs.cd22 * y,
     )
   }
-  
+
   fn inverse(&self) -> Self::T {
     WcsWithSipProjXY2ImgXY {
-     wcs: self.wcs.inverse(),
-     sip: self.sip.clone()
+      wcs: self.wcs.inverse(),
+      sip: self.sip.clone(),
     }
   }
 }
 
-
-
+/// WCS projected XY to Image XY
+#[derive(Debug, Clone, Copy)]
 pub struct WcsProjXY2ImgXY {
   /// Translation vector (in pixel units, so no units).
-  crpix1: f64, crpix2: f64,
+  crpix1: f64,
+  crpix2: f64,
   /// Rotation (no units) combined with a scale (in radians) matrix.
-  icd11: f64, icd12: f64,
-  icd21: f64, icd22: f64,
+  icd11: f64,
+  icd12: f64,
+  icd21: f64,
+  icd22: f64,
 }
 
 impl ProjXY2ImgXY for WcsProjXY2ImgXY {
-  
   fn proj2img(&self, xy: &ProjXY) -> Option<ImgXY> {
     let x = self.icd11 * xy.x + self.icd12 * xy.y + self.crpix1;
     let y = self.icd21 * xy.x + self.icd22 * xy.y + self.crpix2;
     Some(ImgXY::new(x, y))
-   }
+  }
 }
 
-
+/// WCS with SIP projected to image XY
+#[derive(Debug, Clone)]
 pub struct WcsWithSipProjXY2ImgXY {
   /// Regular transformation
   wcs: WcsProjXY2ImgXY,
+
   /// SIP transformation
   sip: Sip,
 }
 
 impl ProjXY2ImgXY for WcsWithSipProjXY2ImgXY {
-
   fn proj2img(&self, xy: &ProjXY) -> Option<ImgXY> {
     let x = self.wcs.icd11 * xy.x + self.wcs.icd12 * xy.y + self.wcs.crpix1;
     let y = self.wcs.icd21 * xy.x + self.wcs.icd22 * xy.y + self.wcs.crpix2;
-    self.sip.inverse(x, y).map(|ImgXY{x: rx, y: ry}| ImgXY::new(x + rx, y + ry))
+    self
+      .sip
+      .inverse(x, y)
+      .map(|ImgXY { x: rx, y: ry }| ImgXY::new(x + rx, y + ry))
   }
 }
-
-
-

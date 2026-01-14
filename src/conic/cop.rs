@@ -1,10 +1,11 @@
 //! Conic perspective projection.
 
-use std::f64::consts::PI;
+use std::f64::consts::{FRAC_PI_2, PI};
 
-use crate::{CustomFloat, CanonicalProjection, ProjXY, XYZ, math::HALF_PI, conic::Conic, ProjBounds};
+use crate::{conic::Conic, CanonicalProjection, CustomFloat, ProjBounds, ProjXY, XYZ};
 
 /// Conic perspective projection.
+#[derive(Debug, Clone, Copy)]
 pub struct Cop {
   conic: Conic,
   c: f64,
@@ -25,12 +26,14 @@ impl Default for Cop {
 }
 
 impl Cop {
-
-  // default theta1 = theta2 = 45 deg
+  /// Construct with default theta1 = theta2 = 45 deg
+  #[must_use]
   pub fn new() -> Self {
-    Self::from_params(HALF_PI.half(), 0.0)
+    Self::from_params(FRAC_PI_2.half(), 0.0)
   }
 
+  /// Construct from provided `theta_a` and `nu` parameters.
+  #[must_use]
   pub fn from_params(theta_a: f64, nu: f64) -> Self {
     let conic = Conic::from_params(theta_a, nu);
     let (sin_ta, cos_ta) = conic.ta.sin_cos();
@@ -40,48 +43,51 @@ impl Cop {
     let cos_nu = conic.nu.cos();
     let y0 = cos_nu * cotan_ta;
     let (z_min, z_max) = if conic.ta >= 0.0 {
-      ((-HALF_PI + conic.ta).sin(), 1.0)
+      ((-FRAC_PI_2 + conic.ta).sin(), 1.0)
     } else {
-      (-1.0, (HALF_PI + conic.ta).sin())
+      (-1.0, (FRAC_PI_2 + conic.ta).sin())
     };
     Self {
-      conic, c, y0, cos_nu,
-      cos_ta, sin_ta, tan_ta, cotan_ta,
-      z_min, z_max
+      conic,
+      c,
+      y0,
+      cos_nu,
+      cos_ta,
+      sin_ta,
+      tan_ta,
+      cotan_ta,
+      z_min,
+      z_max,
     }
   }
-  
+
   fn is_lat_in_domain_of_validity(&self, z: f64) -> bool {
     self.z_min < z && z < self.z_max
   }
 }
 
-
 impl CanonicalProjection for Cop {
-
   const NAME: &'static str = "Conic perspective";
   const WCS_NAME: &'static str = "COP";
 
   fn bounds(&self) -> &ProjBounds {
-    const PROJ_BOUNDS: ProjBounds = ProjBounds::new(
-      None,
-      None
-    );
+    const PROJ_BOUNDS: ProjBounds = ProjBounds::new(None, None);
     &PROJ_BOUNDS
   }
-  
+
   fn proj(&self, xyz: &XYZ) -> Option<ProjXY> {
     if self.is_lat_in_domain_of_validity(xyz.z) {
       let lon = xyz.y.atan2(xyz.x);
-      // r(dec) depends on tan(dec - theta_a) 
+      // r(dec) depends on tan(dec - theta_a)
       // => -pi/2 < dec - theta_a < pi/2 => -pi/2 + theta_a < dec < pi/2 + theta
       let r = xyz.z / (1.0 - xyz.z.pow2()).sqrt();
       if r.is_finite() {
-        let r = (r - self.tan_ta) / (1.0 + r * self.tan_ta);  // to avoid computing tan(dec - ta)
+        let r = (r - self.tan_ta) / (1.0 + r * self.tan_ta); // to avoid computing tan(dec - ta)
         let r = self.cos_nu * (self.cotan_ta - r);
         let (sinc, cosc) = (self.c * lon).sin_cos();
         Some(ProjXY::new(r * sinc, self.y0 - r * cosc))
-      } else { // r == NaN | +Infinity | -Infinity
+      } else {
+        // r == NaN | +Infinity | -Infinity
         debug_assert!(is_close_to_one(xyz.z));
         Some(ProjXY::new(0.0, self.y0))
       }
@@ -95,8 +101,12 @@ impl CanonicalProjection for Cop {
     let x2d = pos.x;
     let y2d = self.y0 - pos.y;
     let r2 = x2d.pow2() + y2d.pow2();
-    let r = if self.conic.negative_ta { -(r2.sqrt()) } else { r2.sqrt() };
-    let lon =  (x2d / r).atan2(y2d / r) / self.c; // / r important because of its sign
+    let r = if self.conic.negative_ta {
+      -(r2.sqrt())
+    } else {
+      r2.sqrt()
+    };
+    let lon = (x2d / r).atan2(y2d / r) / self.c; // / r important because of its sign
     if (-PI - EPS..PI + EPS).contains(&lon) {
       // dec = this.ta + atan(this.cotanta - r / this.cosnu);
       // sin(a+b) = sin(a)cos(b) + cos(a)sin(b)

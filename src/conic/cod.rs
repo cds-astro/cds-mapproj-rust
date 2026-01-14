@@ -1,8 +1,8 @@
 //! Conic Equidistant projection.
- 
-use std::f64::consts::PI;
 
-use crate::{CustomFloat, CanonicalProjection, ProjXY, XYZ, math::HALF_PI, conic::Conic, ProjBounds};
+use std::f64::consts::{FRAC_PI_2, PI};
+
+use crate::{conic::Conic, CanonicalProjection, CustomFloat, ProjBounds, ProjXY, XYZ};
 
 /// Conic Equidistant projection.
 #[derive(Debug, Clone)]
@@ -23,28 +23,33 @@ impl Default for Cod {
 }
 
 impl Cod {
-
-  // default theta1 = theta2 = 45 deg
+  /// Default theta1 = theta2 = 45 deg
+  #[must_use]
   pub fn new() -> Self {
-    Self::from_params(HALF_PI.half(), 0.0)
+    Self::from_params(FRAC_PI_2.half(), 0.0)
   }
 
+  #[must_use]
+  /// Construct from provided `theta_a` and `nu` parameters.
   pub fn from_params(theta_a: f64, nu: f64) -> Self {
     let conic = Conic::from_params(theta_a, nu);
     let sin_ta = conic.ta.sin();
     let cot_ta = 1.0 / conic.ta.tan();
     let (c, y0) = if conic.nu == 0.0 {
-      debug_assert_eq!(conic.theta1, conic.theta2);
+      debug_assert_eq!(conic.theta1, conic.theta2, "Angles must match");
       (sin_ta, cot_ta)
     } else {
       let sin_nu = conic.nu.sin();
-      ((sin_ta * sin_nu) / conic.nu, conic.nu * cot_ta / conic.nu.tan())
+      (
+        (sin_ta * sin_nu) / conic.nu,
+        conic.nu * cot_ta / conic.nu.tan(),
+      )
     };
     let ta_plus_y0 = conic.ta + y0;
     let (r_min, r_max) = if ta_plus_y0 >= 0.0 {
-      (ta_plus_y0 - HALF_PI, ta_plus_y0 + HALF_PI)
+      (ta_plus_y0 - FRAC_PI_2, ta_plus_y0 + FRAC_PI_2)
     } else {
-      (ta_plus_y0 + HALF_PI, ta_plus_y0 - HALF_PI)
+      (ta_plus_y0 + FRAC_PI_2, ta_plus_y0 - FRAC_PI_2)
     };
     let yrange = if conic.negative_ta {
       Some(y0 - r_max * (PI * c).cos().abs()..=y0 + r_max)
@@ -58,17 +63,12 @@ impl Cod {
       r2_min: r_min.pow2(),
       r2_max: r_max.pow2(),
       ta_plus_y0,
-      proj_bounds: ProjBounds::new(
-        Some(-r_max..=r_max),
-        yrange
-      )
+      proj_bounds: ProjBounds::new(Some(-r_max..=r_max), yrange),
     }
   }
 }
 
-
 impl CanonicalProjection for Cod {
-
   const NAME: &'static str = "Conic Equidistant";
   const WCS_NAME: &'static str = "COD";
 
@@ -92,8 +92,12 @@ impl CanonicalProjection for Cod {
     let y2d = self.y0 - pos.y;
     let r2 = x2d.pow2() + y2d.pow2();
     if (self.r2_min..=self.r2_max).contains(&r2) {
-      let r = if self.conic.negative_ta { -(r2.sqrt()) } else { r2.sqrt() };
-      let lon =  (x2d / r).atan2(y2d / r) / self.c; // / r important because of its sign
+      let r = if self.conic.negative_ta {
+        -(r2.sqrt())
+      } else {
+        r2.sqrt()
+      };
+      let lon = (x2d / r).atan2(y2d / r) / self.c; // / r important because of its sign
       if (-PI - EPS..PI + EPS).contains(&lon) {
         let (sinb, cosb) = (self.ta_plus_y0 - r).sin_cos();
         let (sinl, cosl) = lon.sin_cos();

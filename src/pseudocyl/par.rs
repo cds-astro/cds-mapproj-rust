@@ -1,12 +1,15 @@
 //! Parabolic projection.
 
-use std::f64::consts::PI;
 use crate::{CanonicalProjection, CustomFloat, ProjBounds, ProjXY, XYZ};
+use std::f64::consts::PI;
 
 /// Parabolic projection.
+#[derive(Debug, Clone, Copy)]
 pub struct Par;
 
 impl Par {
+  /// Construct a new Parabolic projection.
+  #[must_use]
   pub fn new() -> Self {
     Self
   }
@@ -19,14 +22,13 @@ impl Default for Par {
 }
 
 impl CanonicalProjection for Par {
-
   const NAME: &'static str = "Parabolic";
   const WCS_NAME: &'static str = "PAR";
-  
+
   fn bounds(&self) -> &ProjBounds {
     const PROJ_BOUNDS: ProjBounds = ProjBounds::new(
-      Some(-PI..=PI),          // +- pi
-      Some(-0.5_f64..=0.5_f64) // +-sin(pi/6)
+      Some(-PI..=PI),           // +- pi
+      Some(-0.5_f64..=0.5_f64), // +-sin(pi/6)
     );
     &PROJ_BOUNDS
   }
@@ -37,8 +39,8 @@ impl CanonicalProjection for Par {
     let lat = xyz.z.atan2(r2.sqrt());
     // let lat = xyz.z.asin();
     Some(ProjXY::new(
-      xyz.y.atan2(xyz.x) * ((lat / 1.5).cos().twice() - 1.0), 
-      (lat / 3.0).sin()
+      xyz.y.atan2(xyz.x) * ((lat / 1.5).cos().twice() - 1.0),
+      (lat / 3.0).sin(),
     ))
   }
 

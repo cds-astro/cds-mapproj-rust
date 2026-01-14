@@ -7,9 +7,11 @@ use crate::{CanonicalProjection, CustomFloat, ProjBounds, ProjXY, XYZ};
 static HALF_PI: f64 = 0.5 * PI;
 
 /// Mollweide projection.
+#[derive(Debug, Clone, Copy)]
 pub struct Mol {
   /// Max number of iteration for the Newton-Raphson iterative method.
   n_iter: u8,
+
   /// Precision for the Newton-Raphson iterative method.
   eps: f64,
 }
@@ -21,31 +23,31 @@ impl Default for Mol {
 }
 
 impl Mol {
-  
+  /// Construct a new Mollweide projection.
+  #[must_use]
   pub fn new() -> Self {
     Self {
       n_iter: 100,
       eps: (1.0 / (2.0_f64 * 60.0 * 60.0 * 1000.0 * 2000.0)).to_radians() / PI, // <=> max error (at b = PI) of 1 microarcsec
     }
   }
-  
+
   /// Set the max number of iteration for the Newton method.
   pub fn set_n_iter(&mut self, n_iter: u8) {
     self.n_iter = n_iter;
   }
-  
+
   /// Set the precision (in radians) to stop the Newton algo.
   pub fn set_epsilon(&mut self, eps: f64) {
     self.eps = eps;
   }
-
 
   fn newton_solve(&self, z: f64) -> f64 {
     let cte = PI * z;
     // Initial guess so that for z ~= 1, gamma ~= PI/2.
     // Smooth function for small |z|, so no big deal having a bad init value.
     let mut x = 2.0 * z.asin();
-    let mut f = x + x.sin() - cte; 
+    let mut f = x + x.sin() - cte;
     let mut i = 0_u8;
     while f.abs() > self.eps && i < self.n_iter {
       x -= f / (1.0 + x.cos()); // VERIFIER COEFF 2!!
@@ -54,22 +56,18 @@ impl Mol {
     }
     0.5 * x
   }
-  
 }
 
 impl CanonicalProjection for Mol {
-
   const NAME: &'static str = "Mollweide";
   const WCS_NAME: &'static str = "MOL";
 
   fn bounds(&self) -> &ProjBounds {
-    const PROJ_BOUNDS: ProjBounds = ProjBounds::new(
-      Some(-2.0 * SQRT_2..=2.0 * SQRT_2),
-      Some(-SQRT_2..=SQRT_2)
-    );
+    const PROJ_BOUNDS: ProjBounds =
+      ProjBounds::new(Some(-2.0 * SQRT_2..=2.0 * SQRT_2), Some(-SQRT_2..=SQRT_2));
     &PROJ_BOUNDS
   }
-  
+
   fn proj(&self, xyz: &XYZ) -> Option<ProjXY> {
     // find g iteratively using Newton-Raphson
     // Solve f(g) = 0, with f(g) = 2g + sin(2g) - pi*z
@@ -84,7 +82,10 @@ impl CanonicalProjection for Mol {
     let g = self.newton_solve(xyz.z);
     if (-HALF_PI..=HALF_PI).contains(&g) {
       let (sing, cosg) = g.sin_cos();
-      Some(ProjXY::new((SQRT_2 * xyz.y.atan2(xyz.x) * cosg).twice() / PI, SQRT_2 * sing))
+      Some(ProjXY::new(
+        (SQRT_2 * xyz.y.atan2(xyz.x) * cosg).twice() / PI,
+        SQRT_2 * sing,
+      ))
     } else {
       None
     }
@@ -109,6 +110,7 @@ impl CanonicalProjection for Mol {
           Some(XYZ::new(r * cosl, r * sinl, z))
         } else {
           // Should not happen!
+          // TODO: maybe convert this to unreachable!() or panic!()
           None
         }
       }

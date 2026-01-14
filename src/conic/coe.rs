@@ -1,11 +1,11 @@
 //! Conic Equal Area projection.
 
-use std::f64::consts::PI;
+use std::f64::consts::{FRAC_PI_2, PI};
 
-use crate::{CustomFloat, CanonicalProjection, ProjXY, XYZ, conic::Conic, ProjBounds};
-use crate::math::HALF_PI;
+use crate::{conic::Conic, CanonicalProjection, CustomFloat, ProjBounds, ProjXY, XYZ};
 
 /// Conic Equal Area projection.
+#[derive(Debug, Clone)]
 pub struct Coe {
   conic: Conic,
   one_plus_sint1_sint2: f64,
@@ -25,12 +25,14 @@ impl Default for Coe {
 }
 
 impl Coe {
-
-  // default theta1 = theta2 = 45 deg
+  /// Construct default theta1 = theta2 = 45 deg
+  #[must_use]
   pub fn new() -> Self {
-    Self::from_params(HALF_PI.half(), 0.0)
+    Self::from_params(FRAC_PI_2.half(), 0.0)
   }
 
+  #[must_use]
+  /// Construct from provided `theta_a` and `nu` parameters.
   pub fn from_params(theta_a: f64, nu: f64) -> Self {
     let conic = Conic::from_params(theta_a, nu);
     let sin_t1 = conic.theta1.sin();
@@ -40,16 +42,16 @@ impl Coe {
     let gamma = sin_t1 + sin_t2;
     let c = gamma.half();
     let c2 = c.pow2();
-    let y0 = (one_plus_sint1_sint2 - gamma * sin_ta).sqrt() /  c;
+    let y0 = (one_plus_sint1_sint2 - gamma * sin_ta).sqrt() / c;
     let (r2_min, r2_max) = if gamma >= 0.0 {
       (
         (one_plus_sint1_sint2 - gamma) / c2,
-        (one_plus_sint1_sint2 + gamma) / c2
+        (one_plus_sint1_sint2 + gamma) / c2,
       )
     } else {
       (
         (one_plus_sint1_sint2 + gamma) / c2,
-        (one_plus_sint1_sint2 - gamma) / c2
+        (one_plus_sint1_sint2 - gamma) / c2,
       )
     };
     debug_assert!(r2_min <= r2_max);
@@ -61,19 +63,19 @@ impl Coe {
     };
     Self {
       conic,
-      one_plus_sint1_sint2, gamma, c, c2, y0,
-      r2_min, r2_max,
-      proj_bounds: ProjBounds::new(
-        Some(-r_max..=r_max),
-        yrange
-      )
+      one_plus_sint1_sint2,
+      gamma,
+      c,
+      c2,
+      y0,
+      r2_min,
+      r2_max,
+      proj_bounds: ProjBounds::new(Some(-r_max..=r_max), yrange),
     }
   }
 }
 
-
 impl CanonicalProjection for Coe {
-
   const NAME: &'static str = "Conic Equal Area";
   const WCS_NAME: &'static str = "COE";
 
@@ -99,8 +101,12 @@ impl CanonicalProjection for Coe {
     let y2d = self.y0 - pos.y;
     let r2 = x2d.pow2() + y2d.pow2();
     if (self.r2_min..=self.r2_max).contains(&r2) {
-      let r = if self.conic.negative_ta { -(r2.sqrt()) } else { r2.sqrt() };
-      let lon =  (x2d / r).atan2(y2d / r) / self.c; // / r important because of its sign
+      let r = if self.conic.negative_ta {
+        -(r2.sqrt())
+      } else {
+        r2.sqrt()
+      };
+      let lon = (x2d / r).atan2(y2d / r) / self.c; // / r important because of its sign
       if (-PI - EPS..PI + EPS).contains(&lon) {
         let z = (self.one_plus_sint1_sint2 - self.c2 * r2) / self.gamma;
         if (-1.0..1.0).contains(&z) {

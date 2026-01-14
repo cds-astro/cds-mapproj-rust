@@ -6,7 +6,7 @@ pub mod coe;
 pub mod coo;
 pub mod cop;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 struct Conic {
   /// Parameters `ThetaA` (in radians)
   ta: f64,
@@ -21,7 +21,6 @@ struct Conic {
 }
 
 impl Conic {
-  
   ///
   /// # Params
   /// * `theta_a`: in radians
@@ -32,9 +31,11 @@ impl Conic {
     let theta2 = ta + nu;
     let negative_ta = ta < 0.0;
     Self {
-      ta, nu,
-      theta1, theta2, negative_ta
+      ta,
+      nu,
+      theta1,
+      theta2,
+      negative_ta,
     }
   }
-
 }

@@ -3,6 +3,7 @@
 use crate::{CanonicalProjection, CustomFloat, ProjBounds, ProjXY, XYZ};
 
 /// Lambert's zenithal (or azimuthal) equal area projection.
+#[derive(Debug, Clone, Copy)]
 pub struct Zea;
 
 impl Default for Zea {
@@ -12,24 +13,22 @@ impl Default for Zea {
 }
 
 impl Zea {
+  /// Construct new projection
+  #[must_use]
   pub fn new() -> Self {
     Self
   }
 }
 
 impl CanonicalProjection for Zea {
-
   const NAME: &'static str = "Lambert's zenithal (or azimuthal) equal area";
   const WCS_NAME: &'static str = "ZEA";
 
   fn bounds(&self) -> &ProjBounds {
-    const PROJ_BOUNDS: ProjBounds = ProjBounds::new(
-      Some(-2.0..=2.0),
-      Some(-2.0..=2.0)
-    );
+    const PROJ_BOUNDS: ProjBounds = ProjBounds::new(Some(-2.0..=2.0), Some(-2.0..=2.0));
     &PROJ_BOUNDS
   }
-  
+
   fn proj(&self, xyz: &XYZ) -> Option<ProjXY> {
     // Whole sphere, r <= 2 (equal area)
     let w = (0.5 + 0.5 * xyz.x).sqrt(); // <=> sqrt[(1 + x) / 2]
@@ -45,7 +44,11 @@ impl CanonicalProjection for Zea {
     let r = 0.25 * (pos.x.pow2() + pos.y.pow2());
     if r <= 1.0 {
       let w = (1.0 - r).sqrt();
-      Some(XYZ::new_renorming_if_necessary(1.0 - r.twice(),  pos.x * w,  pos.y * w))
+      Some(XYZ::new_renorming_if_necessary(
+        1.0 - r.twice(),
+        pos.x * w,
+        pos.y * w,
+      ))
     } else {
       None
     }

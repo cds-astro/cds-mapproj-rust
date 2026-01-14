@@ -1,25 +1,40 @@
 //! Zenithal perspective projection.
 
-use std::f64::consts::PI;
+use std::f64::consts::FRAC_PI_2;
 
 use crate::{CanonicalProjection, CustomFloat, ProjBounds, ProjXY, XYZ};
 
-static HALF_PI: f64 = 0.5 * PI;
-
 /// Zenithal perspective projection.
+#[derive(Debug, Clone)]
 pub struct Azp {
   /// WCS keyword PVi_1a.
   mu: f64,
+
   /// WCS keyword PVi_2a (but converted in radians).
   gamma: f64,
+
   // Pre computed quantities
-  tg: f64, // tan(gamma)
-  cg: f64, // cos(gamma)
-  sg: f64, // sin(gamma)
-  abs_mu: f64, // |mu|
-  m_p_1: f64,  // mu + 1;
-  sqrt_mu2_m_1: f64, // sqrt(mu^2 - 1);
-  x_min: f64,        // mu == 0 ? 0 : -1 / this.mu;
+
+  // tan(gamma)
+  tg: f64,
+
+  // cos(gamma)
+  cg: f64,
+
+  // sin(gamma)
+  sg: f64,
+
+  // |mu|
+  abs_mu: f64,
+
+  // mu + 1;
+  m_p_1: f64,
+
+  // sqrt(mu^2 - 1);
+  sqrt_mu2_m_1: f64,
+  // mu == 0 ? 0 : -1 / this.mu;
+  x_min: f64,
+
   proj_bounds: ProjBounds,
 }
 
@@ -30,10 +45,10 @@ impl Default for Azp {
 }
 
 impl Azp {
-
   /// New AZP projection with default parameters:
   /// * `mu = 1.35`
   /// * `gamma = 0`
+  #[must_use]
   pub fn new() -> Self {
     // Gnomonic             if mu = 0
     // Near-side perspetive if mu = 1.35
@@ -47,28 +62,28 @@ impl Azp {
   }
 
   /// New AZP projection with custom parameters:
-  /// # Paras
+  ///
+  /// # Params
   /// * `mu`, WCS parameter PVi_1a
   /// * `gamma`, WCS parameter PVi_2a (but converted in radians)
-  /// # Pancis
+  ///
+  /// # Panics
   /// * if `gamma` not in `[-pi/2, pi/2]`
+  #[must_use]
   pub fn from_params(mu: f64, gamma: f64) -> Self {
-    assert!((-HALF_PI..=HALF_PI).contains(&gamma));
+    assert!(
+      (-FRAC_PI_2..=FRAC_PI_2).contains(&gamma),
+      "gamma must be between -pi/2 pi/2"
+    );
     let (sg, cg) = gamma.sin_cos();
     let mu_cos_gamma = mu * cg;
-    let m_p_1= mu + 1.0;
+    let m_p_1 = mu + 1.0;
     let xbound = m_p_1 / mu;
     let ybound = m_p_1 / mu_cos_gamma;
     let proj_bounds = if mu_cos_gamma.abs() > 1.0 {
-      ProjBounds::new(
-        Some(-xbound..=xbound),
-        Some(-ybound..=ybound)
-      )
+      ProjBounds::new(Some(-xbound..=xbound), Some(-ybound..=ybound))
     } else {
-      ProjBounds::new(
-        None,
-        None
-      )
+      ProjBounds::new(None, None)
     };
     Self {
       mu,
@@ -80,41 +95,46 @@ impl Azp {
       m_p_1,
       sqrt_mu2_m_1: (mu.pow2() - 1.0).sqrt(),
       x_min: if mu == 0.0 { 0.0 } else { -1.0 / mu },
-      proj_bounds
+      proj_bounds,
     }
   }
 
   /// Get the value of the `mu` parameter.
+  #[must_use]
   pub fn mu(&self) -> f64 {
     self.mu
   }
 
   /// Get the value of the `gamma` parameter.
+  #[must_use]
   pub fn gamma(&self) -> f64 {
     self.gamma
   }
-  
-  
 }
 
 impl CanonicalProjection for Azp {
-
   const NAME: &'static str = "Zenithal perspective";
   const WCS_NAME: &'static str = "AZP";
 
   fn bounds(&self) -> &ProjBounds {
     &self.proj_bounds
   }
-  
+
   fn proj(&self, xyz: &XYZ) -> Option<ProjXY> {
     let wx = self.mu + xyz.x;
     let wy = self.cg * wx - xyz.z * self.sg;
     let wx = wx - xyz.z * self.tg;
-    if xyz.x < self.x_min || wx == 0.0 || wy == 0.0
-      || (self.abs_mu < 1.0 && (xyz.x + self.mu) * self.cg <= xyz.z * self.sg) {
+    if xyz.x < self.x_min
+      || wx == 0.0
+      || wy == 0.0
+      || (self.abs_mu < 1.0 && (xyz.x + self.mu) * self.cg <= xyz.z * self.sg)
+    {
       None
     } else {
-      Some(ProjXY::new((xyz.y * self.m_p_1) / wx, (xyz.z * self.m_p_1) / wy))
+      Some(ProjXY::new(
+        (xyz.y * self.m_p_1) / wx,
+        (xyz.z * self.m_p_1) / wy,
+      ))
     }
   }
 
@@ -131,7 +151,8 @@ impl CanonicalProjection for Azp {
       let w = (1.0 - self.mu.pow2()).sqrt() / big_r;
       Some(XYZ::new(-self.mu, pos.x * w, y2d_cg * w))
     } else if (self.abs_mu > 1.0 && (big_r * self.sqrt_mu2_m_1) > w)
-     || (self.abs_mu < 1.0 && big_r > 1.0e9) {
+      || (self.abs_mu < 1.0 && big_r > 1.0e9)
+    {
       None
     } else {
       let w = big_r / w;

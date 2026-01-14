@@ -1,16 +1,20 @@
 //! Cylindrical equal area projection.
 
-use std::f64::consts::PI;
 use crate::{CanonicalProjection, CustomFloat, ProjBounds, ProjXY, XYZ};
+use std::f64::consts::PI;
 
 /// Cylindrical equal area projection.
-/// With default value `lambda = 1`, this projection is a 
+/// With default value `lambda = 1`, this projection is a
 /// Lambert's Cylindrical or Lambert's Equal Area projection.
+#[derive(Debug, Clone)]
 pub struct Cea {
-  // Parameters
+  /// Parameters
   lambda: f64,
-  // Derived quantity
+
+  /// Derived quantity
   one_over_lambda: f64,
+
+  /// Projection bounds
   proj_bounds: ProjBounds,
 }
 
@@ -21,45 +25,50 @@ impl Default for Cea {
 }
 
 impl Cea {
-  
+  /// Construct a new Cylindrical Equal Area projection
+  #[must_use]
   pub fn new() -> Self {
     Self::from_param(1.0)
   }
-  
+
   /// # Params
   /// * `lambda`: correspond to the WCS `PVi_1a` parameter
-  /// # Panics 
+  /// # Panics
   /// * if `lambda = 0` or is not finite.
+  #[must_use]
   pub fn from_param(lambda: f64) -> Self {
-    assert!(lambda != 0.0 && lambda.is_finite());
+    assert!(
+      lambda != 0.0 && lambda.is_finite(),
+      "lambda must finite and not zero"
+    );
     let one_over_lambda = 1.0 / lambda;
-    Self { 
-      lambda, 
+    Self {
+      lambda,
       one_over_lambda,
-      proj_bounds: ProjBounds::new(
-        Some(-PI..=PI),
-        Some(-one_over_lambda..=one_over_lambda)
-      )
+      proj_bounds: ProjBounds::new(Some(-PI..=PI), Some(-one_over_lambda..=one_over_lambda)),
     }
   }
-  
 }
 
 impl CanonicalProjection for Cea {
-
   const NAME: &'static str = "Cylindrical equal area";
   const WCS_NAME: &'static str = "CEA";
 
   fn bounds(&self) -> &ProjBounds {
     &self.proj_bounds
   }
-  
+
   fn proj(&self, xyz: &XYZ) -> Option<ProjXY> {
-    Some(ProjXY::new(xyz.y.atan2(xyz.x), xyz.z * self.one_over_lambda))
+    Some(ProjXY::new(
+      xyz.y.atan2(xyz.x),
+      xyz.z * self.one_over_lambda,
+    ))
   }
 
   fn unproj(&self, pos: &ProjXY) -> Option<XYZ> {
-    if (-PI..=PI).contains(&pos.x) && (-self.one_over_lambda..=self.one_over_lambda).contains(&pos.y) {
+    if (-PI..=PI).contains(&pos.x)
+      && (-self.one_over_lambda..=self.one_over_lambda).contains(&pos.y)
+    {
       let (sinl, cosl) = pos.x.sin_cos();
       let sinb = self.lambda * pos.y; // = z
       let cosb = (1.0 - sinb.pow2()).sqrt(); // = sqrt(1 - z^2) = sqrt(x^2 + y^2) = sinb.asin().cos();

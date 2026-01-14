@@ -3,6 +3,7 @@
 use crate::{CanonicalProjection, CustomFloat, ProjBounds, ProjXY, XYZ};
 
 /// Stereographic projection.
+#[derive(Debug, Clone, Copy)]
 pub struct Stg;
 
 impl Default for Stg {
@@ -12,24 +13,22 @@ impl Default for Stg {
 }
 
 impl Stg {
+  /// Construct new projection
+  #[must_use]
   pub fn new() -> Self {
     Self
   }
 }
 
 impl CanonicalProjection for Stg {
-
   const NAME: &'static str = "Stereographic";
   const WCS_NAME: &'static str = "STG";
 
   fn bounds(&self) -> &ProjBounds {
-    const PROJ_BOUNDS: ProjBounds = ProjBounds::new(
-      None,
-      None
-    );
+    const PROJ_BOUNDS: ProjBounds = ProjBounds::new(None, None);
     &PROJ_BOUNDS
   }
-  
+
   fn proj(&self, xyz: &XYZ) -> Option<ProjXY> {
     // All positions are valid, but diverges at lat = -PI/2
     let w = (1.0 + xyz.x).half();
@@ -44,6 +43,6 @@ impl CanonicalProjection for Stg {
     // All positions valid, just opposite pole
     let r = 0.25 * (pos.x.pow2() + pos.y.pow2());
     let w = 1.0 + r;
-    Some(XYZ::new((1.0 - r)  /w,  pos.x / w,  pos.y / w))
+    Some(XYZ::new((1.0 - r) / w, pos.x / w, pos.y / w))
   }
 }

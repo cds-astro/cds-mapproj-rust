@@ -2,6 +2,7 @@
 use crate::{CanonicalProjection, CustomFloat, ProjBounds, ProjXY, XYZ};
 
 /// North Celestial Pole orthographic projection.
+#[derive(Debug, Clone, Copy)]
 pub struct Ncp;
 
 impl Default for Ncp {
@@ -11,26 +12,25 @@ impl Default for Ncp {
 }
 
 impl Ncp {
+  /// Construct new North Celestial Pole orthographic projection.
+  #[must_use]
   pub fn new() -> Self {
     Self
   }
 }
 
 impl CanonicalProjection for Ncp {
-
   const NAME: &'static str = "North Celestial Pole orthographic";
   const WCS_NAME: &'static str = "NCP";
 
   fn bounds(&self) -> &ProjBounds {
-    const PROJ_BOUNDS: ProjBounds = ProjBounds::new(
-      Some(-1.0..=1.0),
-      Some(-1.0..=1.0)
-    );
+    const PROJ_BOUNDS: ProjBounds = ProjBounds::new(Some(-1.0..=1.0), Some(-1.0..=1.0));
     &PROJ_BOUNDS
   }
-  
+
   fn proj(&self, xyz: &XYZ) -> Option<ProjXY> {
-    if xyz.x >= 0.0 { // Front hemisphere
+    if xyz.x >= 0.0 {
+      // Front hemisphere
       Some(ProjXY::new(xyz.y, xyz.z))
     } else {
       None // Back hemisphere

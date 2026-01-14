@@ -1,9 +1,10 @@
 //! Mercator projection.
 
-use std::f64::consts::PI;
 use crate::{CanonicalProjection, CustomFloat, ProjBounds, ProjXY, XYZ};
+use std::f64::consts::PI;
 
 /// Mercator projection.
+#[derive(Debug, Clone, Copy)]
 pub struct Mer;
 
 impl Default for Mer {
@@ -13,19 +14,19 @@ impl Default for Mer {
 }
 
 impl Mer {
-  pub fn new() -> Self { Self }
+  /// Construct a new Mercator Projection.
+  #[must_use]
+  pub fn new() -> Self {
+    Self
+  }
 }
 
 impl CanonicalProjection for Mer {
-
   const NAME: &'static str = "Mercator";
   const WCS_NAME: &'static str = "MER";
-  
+
   fn bounds(&self) -> &ProjBounds {
-    const PROJ_BOUNDS: ProjBounds = ProjBounds::new(
-      Some(-PI..=PI),
-      None
-    );
+    const PROJ_BOUNDS: ProjBounds = ProjBounds::new(Some(-PI..=PI), None);
     &PROJ_BOUNDS
   }
 
@@ -42,7 +43,7 @@ impl CanonicalProjection for Mer {
       let (sinl, cosl) = pos.x.sin_cos();
       let z = pos.y.tanh();
       let r = (1.0 - z.pow2()).sqrt(); // = cos(asin(z))
-      Some(XYZ::new(r * cosl, r * sinl, z)) 
+      Some(XYZ::new(r * cosl, r * sinl, z))
     } else {
       None
     }

@@ -1,9 +1,6 @@
 //! Zenithal polynomlial projection.
 
-use std::{
-  ops::RangeInclusive,
-  f64::consts::PI,
-};
+use std::{f64::consts::PI, ops::RangeInclusive};
 
 use crate::{CanonicalProjection, CustomFloat, ProjBounds, ProjXY, XYZ};
 
@@ -31,11 +28,11 @@ pub struct Zpn {
 }
 
 impl Zpn {
-  
   /// # Params
   /// * `coeffs`: polynomial coefficients provided by keywords PVi_1a, PVi_2a, ..., PVi_na
   /// # Return
   /// * `None` if negative polynomial en `[0, pi]`
+  #[must_use]
   pub fn from_params(coeffs: Vec<f64>) -> Option<Self> {
     let eps = (1.0_f64 / (60.0_f64 * 60.0 * 1000.0)).to_radians(); // <=> 1 mas ~= 5e-9 radians
     let step = (1.0_f64 / 60.0).to_radians(); // <=> 1 arcmin
@@ -45,12 +42,13 @@ impl Zpn {
   /// # Params
   /// * `coeffs`: polynomial coefficients provided by keywords PVi_1a, PVi_2a, ..., PVi_na
   /// * `domain_step`: step used to determine the domain of validity of the function
-  ///                  default value: 1 arcmin converted in radians
+  ///   default value: 1 arcmin converted in radians
   /// * `domain_eps`: epsilon used in dichotomy to end the convergence process
-  ///                 default value: 1 mas converted into radians
-  ///                 (this value is also assigned to the `epsilon` used in deprojection.
+  ///   default value: 1 mas converted into radians
+  ///   (this value is also assigned to the `epsilon` used in deprojection.
   /// # Return
   /// * `None` if negative polynomial en `[0, pi]`
+  #[must_use]
   pub fn from_params_custom(coeffs: Vec<f64>, domain_step: f64, domain_eps: f64) -> Option<Self> {
     let p = coeffs.into_boxed_slice();
     // Set constants
@@ -58,7 +56,8 @@ impl Zpn {
     // Find the smallest angular distance leading to a positive Euclidean distance
     let mut ang_dist_min = 0.0_f64;
     let mut euc_dist_min = polynomial(ang_dist_min, &p);
-    if euc_dist_min < 0.0 { // In case a[0] < 0
+    if euc_dist_min < 0.0 {
+      // In case a[0] < 0
       // By dichotomy
       // - starts by looking at the first positive value
       let mut min = 0.0_f64;
@@ -89,7 +88,7 @@ impl Zpn {
     // polynomial is bijective on [ang_dist_min, ang_dist_max].
     // To do so, I use the smallest positive value of 'x' at which the sign of the derivative
     // changes.
-    // 
+    //
     // The more robust solution would have been to look at the smallest positive real root
     // of the polynomial derivative but it seems too much code to implements.
     // Doing so, there will be no need for the two parameters 'domain_step' and 'domain_eps'.
@@ -101,7 +100,7 @@ impl Zpn {
     //   https://math.stackexchange.com/questions/1214897/how-to-upper-bound-the-smallest-positive-root-of-a-polynomial
     //   https://en.wikipedia.org/wiki/Sturm%27s_theorem
     //   http://www.sciencedirect.com/science/article/pii/S0377042703007271
-    // 
+    //
     // Here, I am using the fact that the polynomial represents a distance from a center, so:
     // - I assume it is increasing on the bijective part from the projection center to a maximum
     // - I assume the smallest value of x is 0 and the largest is \pi
@@ -113,31 +112,33 @@ impl Zpn {
     if euc_dist_deriv < 0.0 {
       // "Negative derivative of the polynomial at distance"
       return None;
+    }
+
+    // By dichotomy
+    // - find the first value for which the derivative become negative
+    let mut min = ang_dist_min;
+    let mut max = ang_dist_min + domain_step;
+    let mut max_val = dpolynomial(max, &p);
+    while max_val > 0.0 && max < PI {
+      max += domain_step;
+      max_val = dpolynomial(max, &p);
+    }
+    if max_val >= 0.0 {
+      // No change of sign found
+      min = PI;
     } else {
-      // By dichotomy
-      // - find the first value for which the derivative become negative
-      let mut min = ang_dist_min;
-      let mut max = ang_dist_min + domain_step;
-      let mut max_val = dpolynomial(max, &p);
-      while max_val > 0.0 && max < PI {
-        max += domain_step;
-        max_val = dpolynomial(max, &p);
-      }
-      if max_val >= 0.0 { // No change of sign found
-        min = PI;
-      } else { // Dichotomy to find the point in which the derivative becomes null
-        while (max - min) > domain_eps {
-          let med = (max + min).half();
-          let med_val = dpolynomial(med, &p);
-          if med_val <= 0.0 {
-            max = med;
-          } else {
-            min = med;
-          }
+      // Dichotomy to find the point in which the derivative becomes null
+      while (max - min) > domain_eps {
+        let med = (max + min).half();
+        let med_val = dpolynomial(med, &p);
+        if med_val <= 0.0 {
+          max = med;
+        } else {
+          min = med;
         }
       }
-      ang_dist_max = min;
     }
+    ang_dist_max = min;
     let euc_dist_max = polynomial(ang_dist_max, &p);
     // Build struct
     Some(Self {
@@ -149,12 +150,11 @@ impl Zpn {
       step: domain_step,
       proj_bounds: ProjBounds::new(
         Some(-euc_dist_max..=euc_dist_max),
-        Some(-euc_dist_max..=euc_dist_max)
-      )
+        Some(-euc_dist_max..=euc_dist_max),
+      ),
     })
   }
-  
-  
+
   /// Set the max number of iteration for the Newton-Raphson iterative method.
   pub fn set_n_iter(&mut self, n_iter: u8) {
     self.n_iter = n_iter;
@@ -178,7 +178,8 @@ impl Zpn {
     }
     // Solve by newton's method
     // If pathological, solve by the hybrid method
-    self.newton_solve(p, r)
+    self
+      .newton_solve(p, r)
       .unwrap_or_else(|| self.hybrid_solve(p))
   }
 
@@ -193,22 +194,30 @@ impl Zpn {
       i += 1;
     }
     // Deal with the result
-    if f.abs() <= self.eps { // Algorithm converges
-      if self.ang_dist.contains(&r) { // Result in domain of validity
+    if f.abs() <= self.eps {
+      // Algorithm converges
+      if self.ang_dist.contains(&r) {
+        // Result in domain of validity
         Some(r)
-      } else if (*self.ang_dist.start() - self.eps..*self.ang_dist.start()).contains(&r) { // Valid at -epsilon
+      } else if (*self.ang_dist.start() - self.eps..*self.ang_dist.start()).contains(&r) {
+        // Valid at -epsilon
         Some(*self.ang_dist.start())
-      } else if (*self.ang_dist.end()..=*self.ang_dist.end() + self.eps).contains(&r) {  // Valid at +epsilon
+      } else if (*self.ang_dist.end()..=*self.ang_dist.end() + self.eps).contains(&r) {
+        // Valid at +epsilon
         Some(*self.ang_dist.end())
-      } else { // Out of the domain of validity, find a better solution starting by dichotomy (slower)
+      } else {
+        // Out of the domain of validity, find a better solution starting by dichotomy (slower)
         None
       }
-    } else { // Algorithm did not converged
-      if self.ang_dist.contains(&r) { // Result in domain of validity
+    } else {
+      // Algorithm did not converged
+      if self.ang_dist.contains(&r) {
+        // Result in domain of validity
         // Could be pathological, but I assume it is not, and problem due to a too small iteration
         // number or a too small epsilon.
         Some(r)
-      } else { // Pathological situation
+      } else {
+        // Pathological situation
         None
       }
     }
@@ -231,10 +240,9 @@ impl Zpn {
     }
     // Solve by Newton method starting at the center of the reduced domain.
     // If still pathological, solve by dichotomy.
-   self.newton_solve(p, 0.5 * (max + min))
-     .unwrap_or_else(
-       || self.dichotomy_solve(p, min, max)
-     )
+    self
+      .newton_solve(p, 0.5 * (max + min))
+      .unwrap_or_else(|| self.dichotomy_solve(p, min, max))
   }
 
   fn dichotomy_solve(&self, y: f64, mut xmin: f64, mut xmax: f64) -> f64 {
@@ -261,16 +269,13 @@ impl Zpn {
   fn polynomial(&self, x: f64) -> f64 {
     polynomial(x, &self.p)
   }
-  
+
   fn dpolynomial(&self, x: f64) -> f64 {
     dpolynomial(x, &self.p)
   }
-  
 }
 
-
 impl CanonicalProjection for Zpn {
-
   const NAME: &'static str = "Zenithal polynomlial";
   const WCS_NAME: &'static str = "ZPN";
 
@@ -281,22 +286,21 @@ impl CanonicalProjection for Zpn {
   fn proj(&self, xyz: &XYZ) -> Option<ProjXY> {
     let r = (xyz.y.pow2() + xyz.z.pow2()).sqrt();
     // Compute the angular distance from the projection center.
-    if r == 0.0 { // => y == 0 and z == 0
-      let a = if xyz.x > 0.0 { // => x == 1 => angular distance = 0
+    if r == 0.0 {
+      // => y == 0 and z == 0
+      let a = if xyz.x > 0.0 {
+        // => x == 1 => angular distance = 0
         debug_assert!((1.0 - xyz.x).abs() < self.eps);
         self.p[0]
-      } else { // x == -1 => angular distance = PI
+      } else {
+        // x == -1 => angular distance = PI
         debug_assert!((1.0 + xyz.x).abs() < self.eps);
         self.polynomial(PI)
       };
       // Annulus of radius a
-      Some(ProjXY::new(a, 0.0)) 
+      Some(ProjXY::new(a, 0.0))
     } else {
-      let a = if xyz.x > 0.0 {
-        r.asin()
-      } else {
-        xyz.x.acos()
-      };
+      let a = if xyz.x > 0.0 { r.asin() } else { xyz.x.acos() };
       // Check the domain of validity
       if self.ang_dist.contains(&a) {
         // Compute projection
@@ -334,14 +338,13 @@ impl CanonicalProjection for Zpn {
   }
 }
 
-
 /// Compute:
 ///   `p0 + x(p1 + x(p2 + x(p3 + x p4)))`
 /// which is equivalent to:
 ///   `p0 + p1 x + p2 x^2 + p3 x^3 + p4 x^4`
 fn polynomial(x: f64, p: &[f64]) -> f64 {
   let mut it = p.iter().rev();
-  let init = it.next().cloned().unwrap_or(0.0);
+  let init = it.next().copied().unwrap_or(0.0);
   it.fold(init, move |acc, coeff| acc * x + *coeff)
 }
 
@@ -351,31 +354,42 @@ fn polynomial(x: f64, p: &[f64]) -> f64 {
 ///   `p1 + 2 p2 x + 3 p3 x^2 + 4 p4 x^3`
 fn dpolynomial(x: f64, p: &[f64]) -> f64 {
   let mut it = p.iter().enumerate().skip(1).rev();
-  let init = it.next().map(|(i, coeff)| (i as f64) * coeff).unwrap_or(0.0);
+  let init = it.next().map_or(0.0, |(i, coeff)| (i as f64) * coeff);
   it.fold(init, move |acc, (i, coeff)| acc * x + (i as f64) * *coeff)
 }
 
-
 #[cfg(test)]
 mod tests {
-  use crate::{LonLat, Projection};
   use super::*;
+  use crate::{LonLat, Projection};
 
   #[test]
   fn test_poly_1() {
     let coeffs = vec![0.0, 1.0, 0.0, -50.0];
     let zpn = Zpn::from_params(coeffs).unwrap();
     println!("{:?}", &zpn);
-    let p0 = zpn.polynomial(0.0,);
+    let p0 = zpn.polynomial(0.0);
     let p1 = zpn.polynomial(0.1);
     let p2 = zpn.polynomial(0.2);
     assert_eq!(p0, 0.0);
     assert_eq!(p1, 0.05);
     assert_eq!(p2, -0.2);
-    assert_eq!(zpn.proj_lonlat(&LonLat::new(0.0, 0.0)), Some(ProjXY::new(0.0, 0.0)));
-    assert_eq!(zpn.proj_lonlat(&LonLat::new(1.5e-3, 1.0e-3)), Some(ProjXY::new(0.0014997557501373168, 9.99837874976561E-4)));
-    assert_eq!(zpn.unproj_lonlat(&ProjXY::new(0.0, 0.0)), Some(LonLat::new(0.0, 0.0)));
-    assert_eq!(zpn.unproj_lonlat(&ProjXY::new(0.0014997557501373168, 9.99837874976561E-4)), Some(LonLat::new(0.0014999999999823648, 0.0009999999999882431)));
+    assert_eq!(
+      zpn.proj_lonlat(&LonLat::new(0.0, 0.0)),
+      Some(ProjXY::new(0.0, 0.0))
+    );
+    assert_eq!(
+      zpn.proj_lonlat(&LonLat::new(1.5e-3, 1.0e-3)),
+      Some(ProjXY::new(0.0014997557501373168, 9.99837874976561E-4))
+    );
+    assert_eq!(
+      zpn.unproj_lonlat(&ProjXY::new(0.0, 0.0)),
+      Some(LonLat::new(0.0, 0.0))
+    );
+    assert_eq!(
+      zpn.unproj_lonlat(&ProjXY::new(0.0014997557501373168, 9.99837874976561E-4)),
+      Some(LonLat::new(0.0014999999999823648, 0.0009999999999882431))
+    );
   }
   #[test]
   fn test_dpolyv1() {
@@ -388,7 +402,7 @@ mod tests {
     assert_eq!(p1, -0.5);
     assert_eq!(p2, -5.0);
   }
-  
+
   #[test]
   fn test_poly_2() {
     let coeffs = vec![0.050, 0.975, -0.807, 0.337, -0.065, 0.010, 0.003, -0.001];
@@ -400,13 +414,24 @@ mod tests {
     assert_eq!(p0, 0.05);
     assert_eq!(p1, 0.1397606029);
     assert_eq!(p2, 0.2153153792);
-    assert_eq!(zpn.proj_lonlat(&LonLat::new(0.0, 0.0)), Some(ProjXY::new(0.05, 0.0)));
-    assert_eq!(zpn.proj_lonlat(&LonLat::new(1.5e-3, 1.0e-3)), Some(ProjXY::new(0.04306282454554517, 0.028708570032263056)));
-    assert_eq!(zpn.unproj_lonlat(&ProjXY::new(0.05, 0.0)), Some(LonLat::new(0.0, 0.0)));
-    assert_eq!(zpn.unproj_lonlat(&ProjXY::new(0.04306282454554517, 0.028708570032263056)), Some(LonLat::new(0.0014999999950119666,9.99999996674649E-4)));
-
+    assert_eq!(
+      zpn.proj_lonlat(&LonLat::new(0.0, 0.0)),
+      Some(ProjXY::new(0.05, 0.0))
+    );
+    assert_eq!(
+      zpn.proj_lonlat(&LonLat::new(1.5e-3, 1.0e-3)),
+      Some(ProjXY::new(0.04306282454554517, 0.028708570032263056))
+    );
+    assert_eq!(
+      zpn.unproj_lonlat(&ProjXY::new(0.05, 0.0)),
+      Some(LonLat::new(0.0, 0.0))
+    );
+    assert_eq!(
+      zpn.unproj_lonlat(&ProjXY::new(0.04306282454554517, 0.028708570032263056)),
+      Some(LonLat::new(0.0014999999950119666, 9.99999996674649E-4))
+    );
   }
-  
+
   #[test]
   fn test_dpoly_2() {
     let coeffs = vec![0.050, 0.975, -0.807, 0.337, -0.065, 0.010, 0.003, -0.001];
