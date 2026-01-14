@@ -367,7 +367,6 @@ mod tests {
   fn test_poly_1() {
     let coeffs = vec![0.0, 1.0, 0.0, -50.0];
     let zpn = Zpn::from_params(coeffs).unwrap();
-    println!("{:?}", &zpn);
     let p0 = zpn.polynomial(0.0);
     let p1 = zpn.polynomial(0.1);
     let p2 = zpn.polynomial(0.2);
@@ -407,7 +406,6 @@ mod tests {
   fn test_poly_2() {
     let coeffs = vec![0.050, 0.975, -0.807, 0.337, -0.065, 0.010, 0.003, -0.001];
     let zpn = Zpn::from_params(coeffs).unwrap();
-    println!("{:?}", &zpn);
     let p0 = zpn.polynomial(0.0);
     let p1 = zpn.polynomial(0.1);
     let p2 = zpn.polynomial(0.2);

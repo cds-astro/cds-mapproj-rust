@@ -1,25 +1,41 @@
-//! Implementation of the SIP standard.
+//! Implementation of the SIP (Simple Imaging Polynomial) standard.
 //!
+//! SIP is a FITS WCS convention for representing distortion in image headers using polynomials.
+//! It was developed by the Spitzer Science Center and is described in:
+//!
+//! "The SIP Convention for Representing Distortion in FITS Image Headers"
+//! by Shupe et al., ADASS XIV (2005)
+//! <http://fits.gsfc.nasa.gov/registry/sip.html>
+//!
+//! This implementation supports polynomial degrees 0-9, consistent with WCSLIB.
 
 use crate::{CustomFloat, ImgXY};
 use std::ops::RangeInclusive;
 
 /// SIP Polynomial coefficient.
-/// In the polynomial, coefficient must be ordered like this:
+/// Coefficients are stored using standard SIP ordering: for polynomial degree D,
+/// coefficients are ordered with power of u (p) increasing fastest for each power of v (q).
 ///
-/// `0_0, 1_0, 2_0, 3_0, 0_1, 1_1, 2_1, 0_2, 1_2, 0_3`
-/// in which `p_q` correspond to the polynomial part `coeff_p_q * u^p * v^q`.
+/// For degree D: total coefficients = (D+1)*(D+2)/2
+/// Ordering example for degree 3: (0,0), (1,0), (2,0), (3,0), (0,1), (1,1), (2,1), (0,2), (1,2), (0,3)
 ///
-/// Note on "order"/degree: this implementation stores an internal `order` value
-/// equal to (degree + 1). For an internal `order = n` the flattened coefficient
-/// array length must be `n * (n + 1) / 2`. Equivalently, for polynomial degree
-/// `D` the number of coefficients is `(D+1)*(D+2)/2`.
+/// Degree to coefficient count:
+/// - Degree 0: 1 coefficient
+/// - Degree 1: 3 coefficients  
+/// - Degree 2: 6 coefficients
+/// - Degree 3: 10 coefficients
+/// - Degree 4: 15 coefficients
+/// - Degree 5: 21 coefficients
+/// - Degree 6: 28 coefficients
+/// - Degree 7: 36 coefficients
+/// - Degree 8: 45 coefficients
+/// - Degree 9: 55 coefficients
 #[derive(Debug, Clone)]
 pub struct SipCoeff {
-  /// Computed order of the polynomial
-  order: u16,
+  /// Degree of the polynomial
+  degree: u16,
 
-  /// Polynomials coefficient matrix
+  /// Polynomials coefficient array using TPD ordering with radial gaps
   coefficients: Box<[f64]>,
 }
 
@@ -27,27 +43,73 @@ impl SipCoeff {
   /// Create a new SIP coefficient polynomial from the provided coefficients.
   ///
   /// # Params
-  /// * `coefficients`: flattened polynomial coefficients. Coefficients are
-  ///   ordered with the power of `u` (p) increasing fastest for each power
-  ///   of `v` (q). For example, for degree D = 3 the first coefficients are
-  ///   listed as: `0_0, 1_0, 2_0, 3_0, 0_1, 1_1, 2_1, 0_2, 1_2, 0_3` where
-  ///   `p_q` corresponds to the polynomial term `coeff_p_q * u^p * v^q`.
-  ///   In general for polynomial degree `D` the number of coefficients is
-  ///   `(D+1)*(D+2)/2` and this function expects a boxed slice of that size.
+  /// * `coefficients`: flattened polynomial coefficients using standard SIP ordering.
+  ///   Coefficients are ordered with p (power of u) increasing fastest for each q (power of v).
+  ///   The number of coefficients depends on the polynomial degree as follows:
+  ///   - Degree 0: 1 coefficient
+  ///   - Degree 1: 3 coefficients
+  ///   - Degree 2: 6 coefficients
+  ///   - Degree 3: 10 coefficients
+  ///   - Degree 4: 15 coefficients
+  ///   - Degree 5: 21 coefficients
+  ///   - Degree 6: 28 coefficients
+  ///   - Degree 7: 36 coefficients
+  ///   - Degree 8: 45 coefficients
+  ///   - Degree 9: 55 coefficients
+  ///
+  /// # Panics
+  /// Panics if the number of coefficients does not match a valid SIP polynomial degree.
   #[must_use]
   pub fn new(coefficients: Box<[f64]>) -> Self {
     let n_coeff = coefficients.len();
 
-    let order = ((((n_coeff * 8) + 1) as f64).sqrt() as u16 - 1) / 2;
+    // Determine the degree from the coefficient count
+    // For degree D: n_coeff = (D+1)*(D+2)/2
+    // Rearranging: D^2 + 3D + 2 - 2*n_coeff = 0
+    // Using quadratic formula: D = (-3 + sqrt(9 - 8 + 8*n_coeff)) / 2
+    //                            = (-3 + sqrt(1 + 8*n_coeff)) / 2
+    let discriminant = 1.0 + 8.0 * (n_coeff as f64);
 
-    debug_assert_eq!(
-      order * (order + 1) / 2,
-      (coefficients.len() as u16),
-      "Invalid number of coefficients for a SIP polynomial"
+    let degree_f64 = f64::midpoint(-3.0, discriminant.sqrt());
+    let degree = degree_f64.round() as usize;
+
+    // Verify that the degree is valid (i.e., produces exact n_coeff)
+    let expected_n_coeff = (degree + 1) * (degree + 2) / 2;
+    assert!(
+      expected_n_coeff == n_coeff && degree <= 9,
+      "Invalid number of coefficients for a SIP polynomial: {n_coeff}. \
+       Expected 1, 3, 6, 10, 15, 21, 28, 36, 45, or 55 (degrees 0-9)"
     );
+
     Self {
-      order,
+      degree: degree as u16,
       coefficients,
+    }
+  }
+
+  /// Get the index for coefficient with powers (p, q) where p is power of u and q is power of v.
+  /// Standard SIP ordering: coefficients ordered with p increasing fastest for each q.
+  /// Index = q*(degree+1) - q*(q-1)/2 + p
+  #[inline]
+  fn coeff_index(&self, p: usize, q: usize) -> usize {
+    let degree = self.degree as usize;
+    // For each row q, we have (degree - q + 1) coefficients
+    // Index is sum of all previous rows plus p
+    let mut idx = 0;
+    for i in 0..q {
+      idx += degree - i + 1;
+    }
+    idx + p
+  }
+
+  /// Get coefficient value for powers (p, q), returns 0.0 if out of bounds
+  #[inline]
+  fn coeff(&self, p: usize, q: usize) -> f64 {
+    let degree = self.degree as usize;
+    if p + q > degree {
+      0.0
+    } else {
+      self.coefficients[self.coeff_index(p, q)]
     }
   }
 
@@ -65,27 +127,25 @@ impl SipCoeff {
   /// to convert to angular coordinates on the projection plane.
   #[must_use]
   pub fn p(&self, u: f64, v: f64) -> f64 {
-    let mut k = 0;
-    let mut p = 0_f64;
-    let mut v_pow = 1.0;
-    let mut u_pow: f64;
-    // loop over v^i
-    for i in 0..self.order {
-      u_pow = 1.0;
-      // loop over u^j
-      for _ in 0..self.order - i {
-        p += u_pow * v_pow * self.coefficients[k];
-        k += 1;
-        u_pow *= u;
-      }
-      v_pow *= v;
+    let degree = self.degree as usize;
+
+    // Pre-compute powers of u and v
+    let mut u_pow = vec![1.0; degree + 1];
+    let mut v_pow = vec![1.0; degree + 1];
+    for i in 1..=degree {
+      u_pow[i] = u_pow[i - 1] * u;
+      v_pow[i] = v_pow[i - 1] * v;
     }
-    debug_assert_eq!(
-      k,
-      self.coefficients.len(),
-      "Should have iterated over all of c"
-    );
-    p
+
+    let mut result = 0.0;
+    // Evaluate polynomial: sum over all valid (p, q) pairs where p + q <= degree
+    for (q, &v) in v_pow.iter().enumerate().take(degree + 1) {
+      for (p, &u) in u_pow.iter().enumerate().take((degree - q) + 1) {
+        result += self.coeff(p, q) * u * v;
+      }
+    }
+
+    result
   }
 
   /// Returns the value of the `dp/du`, evaluated in `(u, v)`.
@@ -95,25 +155,26 @@ impl SipCoeff {
   /// * Output: derivative in pixels per pixel (dimensionless)
   #[must_use]
   pub fn dpdu(&self, u: f64, v: f64) -> f64 {
-    let mut k = 0;
-    let mut p = 0_f64;
-    let mut v_pow = 1.0;
-    let mut u_pow: f64;
-    for i in 0..self.order {
-      u_pow = 1.0;
-      // The flattened coefficient array stores coefficients with the
-      // power of `u` (p) increasing fastest for each power of `v` (q).
-      // For dp/du we skip the p=0 term for each q (its derivative
-      // wrt u is zero), so advance `k` once to move past c_{0,q}.
-      k += 1;
-      for j in 1..self.order - i {
-        p += u_pow * v_pow * self.coefficients[k] * f64::from(j);
-        k += 1;
-        u_pow *= u;
-      }
-      v_pow *= v;
+    let degree = self.degree as usize;
+
+    // Pre-compute powers of u and v
+    let mut u_pow = vec![1.0; degree + 1];
+    let mut v_pow = vec![1.0; degree + 1];
+    for i in 1..=degree {
+      u_pow[i] = u_pow[i - 1] * u;
+      v_pow[i] = v_pow[i - 1] * v;
     }
-    p
+
+    let mut result = 0.0;
+    // Derivative with respect to u: d/du of u^p is p*u^(p-1)
+    for (q, v) in v_pow.iter().enumerate() {
+      for p in 1..=(degree - q) {
+        // Start from p=1 since derivative of constant is 0
+        result += (p as f64) * self.coeff(p, q) * u_pow[p - 1] * *v;
+      }
+    }
+
+    result
   }
 
   /// Returns the value of the `dp/dv`, evaluated in `(u, v)`.
@@ -123,23 +184,26 @@ impl SipCoeff {
   /// * Output: derivative in pixels per pixel (dimensionless)
   #[must_use]
   pub fn dpdv(&self, u: f64, v: f64) -> f64 {
-    // For dp/dv we skip the entire q=0 block (which contains `order`
-    // coefficients: p=0..order-1 for q=0). Start `k` at `order` to
-    // position at the first coefficient with q=1.
-    let mut k = (self.order) as usize;
-    let mut p = 0_f64;
-    let mut v_pow: f64 = 1.0;
-    let mut u_pow: f64;
-    for i in 1..self.order {
-      u_pow = 1.0;
-      for _ in 0..self.order - i {
-        p += u_pow * v_pow * self.coefficients[k] * f64::from(i);
-        k += 1;
-        u_pow *= u;
-      }
-      v_pow *= v;
+    let degree = self.degree as usize;
+
+    // Pre-compute powers of u and v
+    let mut u_pow = vec![1.0; degree + 1];
+    let mut v_pow = vec![1.0; degree + 1];
+    for i in 1..=degree {
+      u_pow[i] = u_pow[i - 1] * u;
+      v_pow[i] = v_pow[i - 1] * v;
     }
-    p
+
+    let mut result = 0.0;
+    // Derivative with respect to v: d/dv of v^q is q*v^(q-1)
+    for q in 1..=degree {
+      // Start from q=1 since derivative of constant is 0
+      for (p, &u) in u_pow.iter().enumerate().take((degree - q) + 1) {
+        result += (q as f64) * self.coeff(p, q) * u * v_pow[q - 1];
+      }
+    }
+
+    result
   }
 }
 
@@ -332,12 +396,22 @@ impl Sip {
       return None;
     }
 
-    // If polynomial deprojection is available, use it; otherwise fall
-    // back to the iterative Newton solver.
+    // If polynomial deprojection is available, use it as an initial guess
+    // and then refine with Newton-Raphson. This follows WCSLIB's approach
+    // where AP/BP provide a good starting point but iterative refinement
+    // is needed for high precision.
     if self.has_polynomial_deproj() {
-      let u = self.u(fuv, guv).unwrap();
-      let v = self.v(fuv, guv).unwrap();
-      Some(ImgXY::new(u, v))
+      // Per SIP convention (Shupe et al. 2005):
+      // The forward transform is U = u + A(u,v), V = v + B(u,v)
+      // The inverse polynomials AP and BP provide corrections such that:
+      // u = U + AP(U,V) and v = V + BP(U,V)
+      let u_correction = self.u(fuv, guv).unwrap();
+      let v_correction = self.v(fuv, guv).unwrap();
+      let u_initial = fuv + u_correction;
+      let v_initial = guv + v_correction;
+
+      // Use the AP/BP result as initial guess for Newton-Raphson refinement
+      self.bivariate_newton_with_initial_guess(fuv, guv, u_initial, v_initial)
     } else {
       self.bivariate_newton(fuv, guv)
     }
@@ -360,6 +434,73 @@ impl Sip {
   /// 2d case: M = ab => M^-1 = 1/(ad-bc)  d -b
   /// cd                     -c  a
   ///
+  #[must_use]
+  fn bivariate_newton_with_initial_guess(
+    &self,
+    fuv: f64,
+    guv: f64,
+    u_initial: f64,
+    v_initial: f64,
+  ) -> Option<ImgXY> {
+    // Use the provided initial guess (e.g., from AP/BP polynomials)
+    // and refine with Newton-Raphson iteration.
+    let eps2 = self.eps.pow2();
+
+    let mut u = u_initial;
+    let mut v = v_initial;
+
+    // Initial residuals for the additive system
+    let mut f = (u + self.f(u, v)) - fuv;
+    let mut g = (v + self.g(u, v)) - guv;
+
+    let mut norm2 = f.pow2() + g.pow2();
+    let mut i = 0;
+    while i < self.n_iter && norm2 > eps2 {
+      // Jacobian of the system [u + f(u,v), v + g(u,v)]
+      let a = 1.0 + self.dfdu(u, v);
+      let b = self.dfdv(u, v);
+      let c = self.dgdu(u, v);
+      let d = 1.0 + self.dgdv(u, v);
+      let jac = a * d - b * c;
+      // If Jacobian is unusable, fall back to standard method
+      let jac_tol = f64::EPSILON * (a.abs() + d.abs()).max(1.0);
+      if jac.is_nan() || jac.is_infinite() || jac.abs() <= jac_tol {
+        // If the initial guess from AP/BP leads to a bad Jacobian,
+        // fall back to the standard method with multiple attempts
+        return self.bivariate_newton(fuv, guv);
+      }
+      let inv_jac = 1.0 / jac;
+      // Take the Newton step with damping
+      let step_u = inv_jac * (f * d - g * b);
+      let step_v = inv_jac * (g * a - f * c);
+      // Damping: prevent explosion by limiting maximum step magnitude
+      let max_step = 1e6_f64;
+      let step_norm = step_u.abs().max(step_v.abs());
+      let (du_step, dv_step) = if step_norm > max_step {
+        (
+          step_u * (max_step / step_norm),
+          step_v * (max_step / step_norm),
+        )
+      } else {
+        (step_u, step_v)
+      };
+      u -= du_step;
+      v -= dv_step;
+      f = (u + self.f(u, v)) - fuv;
+      g = (v + self.g(u, v)) - guv;
+      norm2 = f.pow2() + g.pow2();
+      i += 1;
+    }
+
+    // Check for convergence and domain validity
+    if norm2 <= eps2 && self.u.contains(&u) && self.v.contains(&v) {
+      Some(ImgXY::new(u, v))
+    } else {
+      // If refinement didn't converge, fall back to standard method
+      self.bivariate_newton(fuv, guv)
+    }
+  }
+
   #[must_use]
   fn bivariate_newton(&self, fuv: f64, guv: f64) -> Option<ImgXY> {
     // Try several small perturbations to the initial guess when solving
@@ -604,30 +745,36 @@ mod tests {
 
   #[test]
   fn test_inverse_with_deproj() {
-    // Projection polynomials (degree 1): f(u,v) = u, g(u,v) = v
-    let a_proj = [0.0, 1.0, 0.0]; // c00, c10, c01
-    let b_proj = [0.0, 0.0, 1.0];
+    // Projection polynomials (degree 1): f(u,v) = 0.1*u, g(u,v) = 0.1*v
+    // So forward: U = u + 0.1*u = 1.1*u, V = v + 0.1*v = 1.1*v
+    let a_proj = [0.0, 0.1, 0.0]; // c00, c10, c01
+    let b_proj = [0.0, 0.0, 0.1];
     let a_proj = SipCoeff::new(a_proj.into());
     let b_proj = SipCoeff::new(b_proj.into());
     let ab_proj = SipAB::new(a_proj, b_proj);
 
-    // Deprojection polynomials: u = 2*f + 3*g + 5, v = -f + 4*g - 1
-    // degree 1 flattened: c00, c10, c01
-    let a_deproj = [5.0, 2.0, 3.0];
-    let b_deproj = [-1.0, -1.0, 4.0];
+    // Deprojection: to invert U = 1.1*u, we get u = U/1.1
+    // Using correction form: u = U + AP(U,V)
+    // So AP(U,V) = U/1.1 - U = -U/11 = -0.0909...*U
+    // Similarly BP(U,V) = -0.0909...*V
+    let a_deproj = [0.0, -1.0 / 11.0, 0.0];
+    let b_deproj = [0.0, 0.0, -1.0 / 11.0];
     let a_deproj = SipCoeff::new(a_deproj.into());
     let b_deproj = SipCoeff::new(b_deproj.into());
     let ab_deproj = SipAB::new(a_deproj, b_deproj);
 
     let sip = Sip::new(ab_proj, Some(ab_deproj), -10.0..=10.0, -10.0..=10.0);
 
-    let fuv = 1.5;
-    let guv = -2.0;
-    let uv = sip.inverse(fuv, guv).unwrap();
-    // Expect u = 2*fuv + 3*guv + 5
-    assert!((uv.x() - (2.0 * fuv + 3.0 * guv + 5.0)).abs() < 1e-12);
-    // Expect v = -fuv + 4*guv - 1
-    assert!((uv.y() - (-fuv + 4.0 * guv - 1.0)).abs() < 1e-12);
+    // Test forward: u=1.0, v=2.0 -> U=1.1, V=2.2
+    let u_orig = 1.0;
+    let v_orig = 2.0;
+    let fuv_expected = u_orig * 1.1;
+    let guv_expected = v_orig * 1.1;
+
+    // Test inverse: U=1.1, V=2.2 -> u=1.0, v=2.0
+    let uv = sip.inverse(fuv_expected, guv_expected).unwrap();
+    assert!((uv.x() - u_orig).abs() < 1e-12);
+    assert!((uv.y() - v_orig).abs() < 1e-12);
   }
 
   #[test]

@@ -316,11 +316,15 @@ impl ImgXY2ProjXY for WcsWithSipImgXY2ProjXY {
     let u = xy.x - self.wcs.crpix1;
     let v = xy.y - self.wcs.crpix2;
     // Add SIP distortion: (u + f(u,v), v + g(u,v))
-    let x_distorted = u + self.sip.f(u, v);
-    let y_distorted = v + self.sip.g(u, v);
+    let f_uv = self.sip.f(u, v);
+    let g_uv = self.sip.g(u, v);
+    let x_distorted = u + f_uv;
+    let y_distorted = v + g_uv;
+
     // Apply CD matrix (rotation + scale) in degrees, then convert to radians
     let deg_x = self.wcs.cd11 * x_distorted + self.wcs.cd12 * y_distorted;
     let deg_y = self.wcs.cd21 * x_distorted + self.wcs.cd22 * y_distorted;
+
     ProjXY::new(deg_x.to_radians(), deg_y.to_radians())
   }
 
@@ -445,9 +449,7 @@ impl ImgXY2ProjXY for WcsWithTpvImgXY2ProjXY {
 
     // Step 4: Convert from degrees to radians for projection functions
     // ProjXY is expected to be in radians (intermediate world coords for projections)
-    let result = ProjXY::new(xi_prime_deg.to_radians(), eta_prime_deg.to_radians());
-
-    result
+    ProjXY::new(xi_prime_deg.to_radians(), eta_prime_deg.to_radians())
   }
 
   fn inverse(&self) -> Self::T {

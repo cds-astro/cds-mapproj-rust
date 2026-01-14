@@ -182,6 +182,7 @@ struct AbsAndSign {
   abs: f64,
   sign: u64,
 }
+
 fn abs_sign_decompose(x: f64) -> AbsAndSign {
   let bits = f64::to_bits(x);
   AbsAndSign {
