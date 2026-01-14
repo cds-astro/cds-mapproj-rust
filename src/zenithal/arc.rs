@@ -8,55 +8,55 @@ use std::f64::consts::PI;
 pub struct Arc;
 
 impl Default for Arc {
-    fn default() -> Self {
-        Self::new()
-    }
+  fn default() -> Self {
+    Self::new()
+  }
 }
 
 impl Arc {
-    /// Construct a new Zenithal (or azimuthal) equidistant projection.
-    #[must_use]
-    pub fn new() -> Self {
-        Self
-    }
+  /// Construct a new Zenithal (or azimuthal) equidistant projection.
+  #[must_use]
+  pub fn new() -> Self {
+    Self
+  }
 }
 
 impl CanonicalProjection for Arc {
-    const NAME: &'static str = "Zenithal (or azimuthal) equidistant";
-    const WCS_NAME: &'static str = "ARC";
+  const NAME: &'static str = "Zenithal (or azimuthal) equidistant";
+  const WCS_NAME: &'static str = "ARC";
 
-    fn bounds(&self) -> &ProjBounds {
-        const PROJ_BOUNDS: ProjBounds = ProjBounds::new(Some(-PI..=PI), Some(-PI..=PI));
-        &PROJ_BOUNDS
-    }
+  fn bounds(&self) -> &ProjBounds {
+    const PROJ_BOUNDS: ProjBounds = ProjBounds::new(Some(-PI..=PI), Some(-PI..=PI));
+    &PROJ_BOUNDS
+  }
 
-    fn proj(&self, xyz: &XYZ) -> Option<ProjXY> {
-        if xyz.x > -1.0 {
-            // Distance in the Euclidean plane (yz)
-            // Angular distance is acos(x), but for small separation, asin(r) is more accurate.
-            let r = (xyz.y.pow2() + xyz.z.pow2()).sqrt();
-            let r = if xyz.x > 0.0 {
-                // Angular distance < PI/2, angular distance = asin(r)
-                r.asinc()
-            } else {
-                // Angular distance > PI/2, angular distance = acos(x)
-                xyz.x.acos() / r
-            };
-            Some(ProjXY::new(xyz.y * r, xyz.z * r))
-        } else {
-            Some(ProjXY::new(PI, 0.0))
-        }
+  fn proj(&self, xyz: &XYZ) -> Option<ProjXY> {
+    if xyz.x > -1.0 {
+      // Distance in the Euclidean plane (yz)
+      // Angular distance is acos(x), but for small separation, asin(r) is more accurate.
+      let r = (xyz.y.pow2() + xyz.z.pow2()).sqrt();
+      let r = if xyz.x > 0.0 {
+        // Angular distance < PI/2, angular distance = asin(r)
+        r.asinc()
+      } else {
+        // Angular distance > PI/2, angular distance = acos(x)
+        xyz.x.acos() / r
+      };
+      Some(ProjXY::new(xyz.y * r, xyz.z * r))
+    } else {
+      Some(ProjXY::new(PI, 0.0))
     }
+  }
 
-    fn unproj(&self, pos: &ProjXY) -> Option<XYZ> {
-        // r <= pi
-        let r = (pos.x.pow2() + pos.y.pow2()).sqrt();
-        if r <= PI {
-            let x = r.cos();
-            let r = r.sinc();
-            Some(XYZ::new(x, pos.x * r, pos.y * r))
-        } else {
-            None
-        }
+  fn unproj(&self, pos: &ProjXY) -> Option<XYZ> {
+    // r <= pi
+    let r = (pos.x.pow2() + pos.y.pow2()).sqrt();
+    if r <= PI {
+      let x = r.cos();
+      let r = r.sinc();
+      Some(XYZ::new(x, pos.x * r, pos.y * r))
+    } else {
+      None
     }
+  }
 }
