@@ -36,19 +36,18 @@ impl SipCoeff {
   
   /// Returns the value of the polynomial, evaluated in `(u, v)`.
   pub fn p(&self, u: f64, v: f64) -> f64 {
-    // Probably not the most efficient way to implement this. TODO: think twice...
     let mut k = 0;
     let mut p = 0_f64;
-    let mut x = u;
+    let mut x = 1_f64;         // u^i, starting at u^0
     for i in 0..self.order {
       let l = self.order - i;
-      let mut y = v;
+      let mut y = 1_f64;       // v^j, reset each outer loop
       for _ in 0..l {
         p += x * y * self.c[k];
         k += 1;
-        y *= y; // Not optimal for numerical stability :o/
+        y *= v;                // advance v^j linearly
       }
-      x *= x; // Not optimal for numerical stability :o/
+      x *= u;                  // advance u^i linearly
     }
     debug_assert_eq!(k, self.c.len());
     p
@@ -56,19 +55,18 @@ impl SipCoeff {
 
   /// Returns the value of the `dp/du`, evaluated in `(u, v)`.
   pub fn dpdu(&self, u: f64, v: f64) -> f64 {
-    // Probably not the most efficient way to implement this. TODO: think twice...
     let mut k = 0;
     let mut p = 0_f64;
-    let mut x = u;
-    for i in 1..self.order {
+    let mut x = 1_f64;
+    for i in 0..self.order {
       let l = self.order - i;
-      let mut y = v;
+      let mut y = 1_f64;
       for _ in 0..l {
-        p += i as f64 * x * y * self.c[k];
+        p += f64::from(i) * x * y * self.c[k];
         k += 1;
-        y *= y; // Not optimal for numerical stability :o/
+        y *= v;
       }
-      x *= x; // Not optimal for numerical stability :o/
+      x *= u;
     }
     debug_assert_eq!(k, self.c.len());
     p
@@ -76,19 +74,18 @@ impl SipCoeff {
 
   /// Returns the value of the `dp/dv`, evaluated in `(u, v)`.
   pub fn dpdv(&self, u: f64, v: f64) -> f64 {
-    // Probably not the most efficient way to implement this. TODO: think twice...
     let mut k = 0;
     let mut p = 0_f64;
-    let mut x = u;
+    let mut x = 1_f64;           // u^i
     for i in 0..self.order {
       let l = self.order - i;
-      let mut y = v;
-      for j in 1..l {
-        p += j as f64 * x * y * self.c[k];
+      let mut y = 1_f64;       // v^(j-1), starting at v^0 when j=1
+      for j in 0..l {
+        p += f64::from(j) * x * y * self.c[k];
         k += 1;
-        y *= y; // Not optimal for numerical stability :o/
+        y *= v;
       }
-      x *= x; // Not optimal for numerical stability :o/
+      x *= u;
     }
     debug_assert_eq!(k, self.c.len());
     p
@@ -222,8 +219,8 @@ impl Sip {
       None
     }
   }
-  
-  /// Mutli-variate Newton-Raphson:
+
+  /// Multi-variate Newton-Raphson:
   /// f1(x1, ..., xn) = 0es006500
   /// ...
   /// fn(x1, ..., xn) = 0

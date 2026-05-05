@@ -1,5 +1,10 @@
 # `mapproj` Change Log
 
+## 0.4.1
+
+### Add
+
+* Fix SIP support
 
 ## 0.4.0
 
