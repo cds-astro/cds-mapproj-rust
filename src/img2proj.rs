@@ -357,9 +357,12 @@ pub struct WcsWithSipProjXY2ImgXY {
 impl ProjXY2ImgXY for WcsWithSipProjXY2ImgXY {
 
   fn proj2img(&self, xy: &ProjXY) -> Option<ImgXY> {
-    let x = self.wcs.icd11 * xy.x + self.wcs.icd12 * xy.y + self.wcs.crpix1;
-    let y = self.wcs.icd21 * xy.x + self.wcs.icd22 * xy.y + self.wcs.crpix2;
-    self.sip.inverse(x, y).map(|ImgXY{x: rx, y: ry}| ImgXY::new(x + rx, y + ry))
+    let bu = self.wcs.icd11 * xy.x + self.wcs.icd12 * xy.y;
+    let bv = self.wcs.icd21 * xy.x + self.wcs.icd22 * xy.y;
+    self
+      .sip
+      .inverse(bu, bv)
+      .map(|ImgXY { x: rx, y: ry }| ImgXY::new(bu + rx + self.wcs.crpix1, bv + ry + self.wcs.crpix2))
   }
 }
 
