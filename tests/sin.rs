@@ -47,8 +47,9 @@ fn test_sin() {
   let lonlat = img2lonlat.img2lonlat(&img_coo_input).unwrap();
   assert!((lonlat.lon() - proj_center.lon()).abs() < 1e-14);
   assert!((lonlat.lat() - proj_center.lat()).abs() < 1e-14);
-  let img_coo_input = img2lonlat.lonlat2img(&lonlat).unwrap();
-  assert!((img_coo_input.x() - img_coo_input.x()).abs() < 1e-14);
-  assert!((img_coo_input.y() - img_coo_input.y()).abs() < 1e-14);
+  let img_coo_output = img2lonlat.lonlat2img(&lonlat).unwrap();
+  // One ulp of longitude is about 1e-10 pixel at this scale, hence 1e-9.
+  assert!((img_coo_output.x() - img_coo_input.x()).abs() < 1e-9);
+  assert!((img_coo_output.y() - img_coo_input.y()).abs() < 1e-9);
   
 }
