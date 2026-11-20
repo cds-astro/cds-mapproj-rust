@@ -64,9 +64,9 @@ CDELT2  =  2.77777773495436E-4 / Redundancy with CD2_2, we ignore it
 ```rust
 // Imports
 use mapproj::{
-   CenteredProjection, ImgXY, LonLat
-   img2lonlat::Img2LonLat,
-   img2proj::ImgXY2ProjXY,
+   CenteredProjection, ImgXY, LonLat,
+   img2celestial::Img2Celestial,
+   img2proj::WcsImgXY2ProjXY,
    zenithal::sin::Sin,
 };
 
@@ -84,7 +84,7 @@ let cd22 =  2.77777773495436e-4_f64;
 let mut proj = CenteredProjection::new(Sin::default());
 let proj_center = LonLat::new(crval1.to_radians(), crval2.to_radians());
 proj.set_proj_center_from_lonlat(&proj_center);
-let img2proj = ImgXY2ProjXY::from_cd(crpix1, crpix2, cd11, 0.0, 0.0, cd22);
+let img2proj = WcsImgXY2ProjXY::from_cd(crpix1, crpix2, cd11, 0.0, 0.0, cd22);
 let img2lonlat = Img2Celestial::new(img2proj, proj);
 // We could have set the projection center here instead of previously:
 //   img2lonlat.set_proj_center_from_lonlat(proj_center);
@@ -95,9 +95,10 @@ let img_coo_input = ImgXY::new(382.00001513958, 389.500015437603);
 let lonlat = img2lonlat.img2lonlat(&img_coo_input).unwrap();
 assert!((lonlat.lon() - proj_center.lon()).abs() < 1e-14);
 assert!((lonlat.lat() - proj_center.lat()).abs() < 1e-14);
-let img_coo_input = img2lonlat.lonlat2img(&lonlat).unwrap();
-assert!((img_coo_input.x() - img_coo_input.x()).abs() < 1e-14);
-assert!((img_coo_input.y() - img_coo_input.y()).abs() < 1e-14);
+let img_coo_output = img2lonlat.lonlat2img(&lonlat).unwrap();
+// One ulp of longitude is about 1e-10 pixel at this scale, hence 1e-9.
+assert!((img_coo_output.x() - img_coo_input.x()).abs() < 1e-9);
+assert!((img_coo_output.y() - img_coo_input.y()).abs() < 1e-9);
 ```
 
 
