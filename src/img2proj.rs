@@ -231,8 +231,8 @@ impl WcsImgXY2ProjXY {
     let (sinc, cosc) = crota2.to_radians().sin_cos();
     Self::from_cd(
       crpix1, crpix2, 
-      cdelt1 * cosc, cdelt1 * sinc,
-      -cdelt2 * sinc, cdelt2 * cosc
+      cdelt1 * cosc, -cdelt2 * sinc,
+      cdelt1 * sinc, cdelt2 * cosc
     )
   }
   
@@ -268,8 +268,8 @@ impl ImgXY2ProjXY for WcsImgXY2ProjXY {
       crpix1: self.crpix1,
       crpix2: self.crpix2,
       icd11:  self.cd22 / det,
-      icd12: -self.cd21 / det,
-      icd21: -self.cd12 / det,
+      icd12: -self.cd12 / det,
+      icd21: -self.cd21 / det,
       icd22:  self.cd11 / det,
     }
   }

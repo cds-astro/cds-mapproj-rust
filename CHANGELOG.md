@@ -6,6 +6,11 @@
 
 * Fix SIP support
 
+### Fix
+
+* `WcsImgXY2ProjXY::inverse` transposed the off-diagonal terms of the inverse CD matrix
+* `WcsImgXY2ProjXY::from_cr` built the transpose of the CDELTi + CROTA2 matrix
+
 ## 0.4.0
 
 Released 2025-02-10
