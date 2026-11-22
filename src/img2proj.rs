@@ -268,8 +268,8 @@ impl ImgXY2ProjXY for WcsImgXY2ProjXY {
       crpix1: self.crpix1,
       crpix2: self.crpix2,
       icd11:  self.cd22 / det,
-      icd12: -self.cd21 / det,
-      icd21: -self.cd12 / det,
+      icd12: -self.cd12 / det,
+      icd21: -self.cd21 / det,
       icd22:  self.cd11 / det,
     }
   }
@@ -363,6 +363,22 @@ impl ProjXY2ImgXY for WcsWithSipProjXY2ImgXY {
       .sip
       .inverse(bu, bv)
       .map(|ImgXY { x: rx, y: ry }| ImgXY::new(bu + rx + self.wcs.crpix1, bv + ry + self.wcs.crpix2))
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  /// The inverse of a CD matrix that is not symmetric brings a pixel back to itself.
+  #[test]
+  fn cd_inverse_round_trip() {
+    let img2proj = WcsImgXY2ProjXY::from_cd(100.0, 200.0, 2.0, 1.0, 0.5, 3.0);
+    let proj2img = img2proj.inverse();
+    let pixel = ImgXY::new(110.0, 230.0);
+    let back = proj2img.proj2img(&img2proj.img2proj(&pixel)).unwrap();
+    assert!((back.x() - pixel.x()).abs() < 1e-9, "x: {}", back.x());
+    assert!((back.y() - pixel.y()).abs() < 1e-9, "y: {}", back.y());
   }
 }
 
